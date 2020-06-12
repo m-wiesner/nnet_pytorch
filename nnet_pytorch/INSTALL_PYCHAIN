@@ -1,0 +1,12 @@
+Install kaldi tools;
+cd openfst;
+make clean;
+./configure --special-flags;
+make; make install;
+
+export OPENFST_PATH=/path/to/openfst;
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${OPENFST_PATH}/lib:/usr/local/cuda/lib64;
+
+cd pychain;
+cd openfst_binding; python setup.py install;
+cd ../pytorch_binding; python setup.py install
