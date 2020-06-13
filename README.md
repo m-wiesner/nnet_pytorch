@@ -43,6 +43,11 @@ many commented lines before and after with a note:
 2. decode.py,
 3. generate_conditional_from_buffer.py
 
+Furthermore, some data will need to be downloaded for these examples. The
+download takes long enough, and is large enough that it is not included in
+the script. See the README in librilight for more information about using
+the unlabeled data.
+
 
 CORE ALGORITHMS:
 ------------------------------------------------------------------------------
