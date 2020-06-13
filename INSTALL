@@ -1,6 +1,0 @@
-1. Go to tools and write
-
-make
-
-
-This will install kaldi, pychain, openfst, set up a virtual environment

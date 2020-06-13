@@ -79,12 +79,13 @@ running:
 
 ./run.sh
 
-After this training can be run with: 
+Neural Network Training
+-------------------------------------------------------------------------------
 
-Supervised Baseline: ./run.sh --stage 13
-Semisupervised:      ./run.sh --stage 14
+Train Supervised Baseline: ./run.sh --stage 13
 
-Decoding and generation are:
+Train Semisupervised:      ./run.sh --stage 14
 
-Decoding:            ./run.sh --stage 15
-Generate:            ./run.sh --stage 16
+Decode:                    ./run.sh --stage 15
+
+Generate:                  ./run.sh --stage 16
