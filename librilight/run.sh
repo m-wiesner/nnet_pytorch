@@ -158,8 +158,8 @@ fi
 if [ $stage -le 12 ]; then
   memmap_data.py data/train_10h_fbank/feats.scp data/train_10h_fbank/feats.scp.dat
   ali-to-pdf ${tree}/final.mdl ark:"gunzip -c ${tree}/ali.*.gz |" ark,t:data/train_10h_fbank/pdfid.${subsampling}.tgt
-  #memmap_data.py data/train_960/feats.scp data/train_960/feats.scp.dat
-  #python local/prepare_unlabeled_tgt.py --subsample ${subsampling} data/train_960/utt2num_frames > data/train_960/pdfid.${subsampling}.tgt
+  memmap_data.py data/train_960/feats.scp data/train_960/feats.scp.dat
+  python local/prepare_unlabeled_tgt.py --subsample ${subsampling} data/train_960/utt2num_frames > data/train_960/pdfid.${subsampling}.tgt
 fi
 
 # Supervised ChainWideResnet (Only works with subsampling == 4)
@@ -269,4 +269,18 @@ if [ $stage -eq 15 ]; then
       data/lang_test_tg{small,large} \
       data/${ds}_fbank exp/model${modelnum}/decode_60_160.mdl_graph_${ds}{,_tglarge_rescored} 
   done
+fi
+
+# Generation
+if [ $stage -eq 16 ]; then
+  modeldir=`dirname ${chaindir}`/model${modelnum}
+  gen_dir=${modeldir}/generate_cond_160.mdl
+  mkdir -p ${gen_dir}
+  generate_cmd="./utils/queue.pl --mem 2G --gpu 1 --config conf/gpu.conf ${gen_Dir}/log"
+  ${generate_cmd} generate_conditional_from_buffer.py \
+    --gpu \
+    --target 1084 1084 1084 1084 1084 \
+    --idim 80 --chunk-width 20 --left-context 4 --right-context 4 \
+    --modeldir ${modeldir} --modelname 160.mdl \
+    --dumpdir ${gen_dir} --batchsize 32
 fi
