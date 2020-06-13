@@ -1,6 +1,7 @@
 #!/bin/bash
 
-. ./path_train.sh
+#. ./path_train.sh
+. ./path.sh
 
 # Training (batch and gpu configs)
 gpu=false

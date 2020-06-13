@@ -52,7 +52,6 @@ class ChainLoss(nn.Module):
         super(ChainLoss, self).__init__()
         self.den_graph = ChainGraph(
             fst=simplefst.StdVectorFst.read(den_graph),
-            leaky_hmm_coefficient=0.1,
         )
         self.avg = avg
 
@@ -67,7 +66,8 @@ class ChainLoss(nn.Module):
             x = model(sample)[0]
         
         T = x.size(1) # Length
-        den_objf = ChainFunction.apply(x, den_graphs)   
+        x_lengths = torch.LongTensor([T] * B).to(x.device)
+        den_objf = ChainFunction.apply(x, x_lengths, den_graphs, 0.1)   
         num_objf = NumeratorFunction.apply(x, sample.target)
         loss = -(num_objf - den_objf)
         if self.avg:

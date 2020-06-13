@@ -10,8 +10,8 @@ import argparse
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Takes Kaldi features, converts them to numpy objects and
-        stores memory-mapped version for efficient access in training.'
+        description='Takes Kaldi features, converts them to numpy objects and '
+        'stores memory-mapped version for efficient access in training.'
     )
     parser.add_argument('feats_scp')
     parser.add_argument('feats_scp_mapped')

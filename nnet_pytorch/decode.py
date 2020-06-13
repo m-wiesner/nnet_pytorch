@@ -21,6 +21,7 @@ def main():
 
     # Reserve the GPU if used in decoding. In general it won't be.        
     if args.gpu:
+        # User will need to set CUDA_VISIBLE_DEVICES here
         cvd = subprocess.check_output(["/usr/bin/free-gpu", "-n", "1"]).decode().strip()
         os.environ['CUDA_VISIBLE_DEVICES'] = cvd
     

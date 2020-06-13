@@ -23,7 +23,10 @@ class Energy(nn.Module):
     
     def forward(self, model, sample):
         den_graphs = ChainGraphBatch(self.graph, sample.input.size(0))
-        objf = ChainFunction.apply(model(sample)[0], den_graphs)
+        x = model(sample)[0]
+        T = x.size(1)
+        x_lengths = torch.LongTensor([T] * x.size(0)).to(x.device)
+        objf = ChainFunction.apply(model(sample)[0], x_lengths, den_graphs, 0.1)
         return -objf 
 
 
@@ -86,7 +89,6 @@ class SequenceEBMLoss(nn.Module):
         super(SequenceEBMLoss, self).__init__()
         self.den_graph = ChainGraph(
             fst=simplefst.StdVectorFst.read(den_graph),
-            leaky_hmm_coefficient=0.1,
         )
 
         self.sgld_sampler = SGLDSampler(
@@ -122,8 +124,9 @@ class SequenceEBMLoss(nn.Module):
             x = model(sample)[0]
         
         T = x.size(1)
+        x_lengths = torch.LongTensor([T] * B).to(x.device)
         den_graphs = ChainGraphBatch(self.den_graph, sample.input.size(0))
-        sample_energy = -ChainFunction.apply(x, den_graphs)
+        sample_energy = -ChainFunction.apply(x, x_lengths, den_graphs, 0.1)
         avg_sample_energy = sample_energy
       
         if (targets[0, 0] == -1 and self.ebm_weight > 0):  

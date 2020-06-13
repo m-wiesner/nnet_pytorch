@@ -9,10 +9,9 @@ if [ $# -ne 1 ]; then
 fi
 
 data=$1
-
 # Get librilight set
 wget https://dl.fbaipublicfiles.com/librilight/data/librispeech_finetuning.tgz
-tar -xvf librispeech_finetuning.tgz ${data}
+tar -xvf librispeech_finetuning.tgz && mv librispeech_finetuning ${data}
 
 # The following are the data subsets:
 # 1h/{0..5}/{clean,other}

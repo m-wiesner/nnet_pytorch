@@ -10,10 +10,8 @@ from collections import namedtuple
 import numpy as np
 import random
 import sys
-from .AdamSGLD import AdamSGLD
-from .AdadeltaSGLD import AdadeltaSGLD
-from .SGLD import SGLD
 from .AcceleratedSGLD import AcceleratedSGLD
+from .SGLD import SGLD  
 
 
 Samples = namedtuple('Samples', ['input', 'metadata']) 
@@ -73,9 +71,16 @@ class SGLDSampler(object):
     def update(self, x, f, sample_energy=None, max_iters=150):
         # Debug Diagnostic
         x_k = torch.autograd.Variable(x[0], requires_grad=True)
+        optimizers = {
+            'sgd': SGLD(
+                [x_k], lr=self.stepsize, momentum=0.0, noise=self.noise,
+                stepscale=self.replay_correction, clamp=0.0, nesterov=False,
+                weight_decay=self.weight_decay,
+            )
+        }
         if sample_energy is not None:
             optimizers = {
-                **optimizers, 
+                    **optimizers,
                     'accsgld': AcceleratedSGLD(
                     [x_k], sample_energy, lr=self.stepsize, noise=self.noise,
                     stepscale=self.replay_correction, clamp=1.0,

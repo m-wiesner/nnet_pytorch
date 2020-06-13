@@ -44,7 +44,7 @@ fi
 
 if [ $stage -le 2 ]; then
   # Get the librislight semisupervised subsets
-  local/prepapre_librilight.sh $librilight
+  local/prepare_librilight.sh $librilight
   ./steps/make_mfcc.sh --cmd "$train_cmd" --nj 32 data/train_10h exp/make_mfcc/train_10h mfcc
   ./utils/fix_data_dir.sh data/train_10h
   ./steps/compute_cmvn_stats.sh data/train_10h
@@ -158,8 +158,8 @@ fi
 if [ $stage -le 12 ]; then
   memmap_data.py data/train_10h_fbank/feats.scp data/train_10h_fbank/feats.scp.dat
   ali-to-pdf ${tree}/final.mdl ark:"gunzip -c ${tree}/ali.*.gz |" ark,t:data/train_10h_fbank/pdfid.${subsampling}.tgt
-  memmap_data.py data/train_960/feats.scp data/train_960/feats.scp.dat
-  python local/prepare_unlabeled_tgt.py --subsample ${subsampling} data/train_960/utt2num_frames > data/train_960/pdfid.${subsampling}.tgt
+  #memmap_data.py data/train_960/feats.scp data/train_960/feats.scp.dat
+  #python local/prepare_unlabeled_tgt.py --subsample ${subsampling} data/train_960/utt2num_frames > data/train_960/pdfid.${subsampling}.tgt
 fi
 
 # Supervised ChainWideResnet (Only works with subsampling == 4)
@@ -175,7 +175,7 @@ if [ $stage -eq 13 ]; then
     --model ChainWideResnet \
     --depth 28 \
     --width 10 \
-    --warmup 100 \
+    --warmup 1000 \
     --decay 1e-05 \
     --xent 0.2 \
     --l2 0.0001 \
@@ -192,7 +192,7 @@ if [ $stage -eq 13 ]; then
     'left_context': 10, 'right_context': 5
         }\
      ]" \
-    ${chaindir}/model${modelnum}
+    `dirname ${chaindir}`/model${modelnum}
 fi
 
 # Semi-Supervised ChainWideResnet (Only works with subsampling == 4)
@@ -201,35 +201,50 @@ if [ $stage -eq 14 ]; then
   ./train_nnet_pytorch.sh \
     --gpu true \
     --skip-datadump true \
-    --objective LFMMI \
+    --objective SemisupLFMMI \
     --denom-graph ${chaindir}/den.fst \
     --num-pdfs ${num_pdfs} \
     --subsample ${subsampling} \
     --model ChainWideResnet \
     --depth 28 \
     --width 10 \
-    --warmup 500 \
+    --warmup 1000 \
     --decay 1e-05 \
     --xent 0.2 \
     --l2 0.0001 \
     --weight-decay 1e-05 \
     --lr 0.0001 \
-    --batches-per-epoch 500 \
-    --num-epochs 80 \
+    --batches-per-epoch 250 \
+    --num-epochs 160 \
     --validation-spks 0 \
+    --sgld-thresh 0 \
+    --sgld-reinit-p 0.05 \
+    --sgld-buffer 10000 \
+    --sgld-stepsize 1.0 \
+    --sgld-steps 4 \
+    --sgld-noise 0.001 \
+    --sgld-decay 0.0 \
+    --sgld-warmup 0 \
+    --sgld-optim accsgld \
+    --sgld-replay-correction 0.5 \
+    --l2-energy 0.0001 \
+    --sgld-weight-decay 1e-10 \
+    --delay-updates 2 \
+    --lfmmi-weight 1.0 \
+    --ebm-weight 1.0 \
     "[ \
         {\
     'data': 'data/train_10h_fbank', \
     'tgt': 'data/train_10h_fbank/pdfid.${subsampling}.tgt', \
     'batchsize': 32, 'chunk_width': 140, \
     'left_context': 10, 'right_context': 5 \
-        }, \
+        },\
         {\
-     'data': 'data/train_960_fbank, \
-     'tgt': 'data/train_960_fbank/pdfid.${subsampling}.tgt', \
+     'data': 'data/train_960', \
+     'tgt': 'data/train_960/pdfid.${subsampling}.tgt', \
      'batchsize': 32, 'chunk_width': 20, \
-     'left_context': 50, 'right_context': 10 \
-       }, \
+     'left_context': 10, 'right_context': 5 \
+       },\
      ]" \
      `dirname ${chaindir}`/model${modelnum}
 fi
