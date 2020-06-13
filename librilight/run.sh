@@ -251,12 +251,13 @@ fi
 
 # DECODING
 if [ $stage -eq 15 ]; then
-  ./utils/mkgraph.sh --self-loop-scale 1.0 \
-    data/lang_test_tgsmall ${tree} ${tree}/graph_tgsmall
-  ./local/prepare_test.sh --subsampling ${subsampling} --data ${unlabeled_data} 
+  #./utils/mkgraph.sh --self-loop-scale 1.0 \
+  #  data/lang_test_tgsmall ${tree} ${tree}/graph_tgsmall
+  #./local/prepare_test.sh --subsampling ${subsampling} --data ${unlabeled_data} 
   
-  average_models.py `dirname ${chaindir}`/model${modelnum} 80 60 160  
-  for ds in dev-clean dev-other test-clean test-other; do 
+  #average_models.py `dirname ${chaindir}`/model${modelnum} 80 60 160  
+  #for ds in dev_clean dev_other test_clean test_other; do 
+  for ds in dev_clean; do
     ./decode_nnet_pytorch.sh --min-lmwt 6 \
                            --max-lmwt 18 \
                            --skip-datadump true \
