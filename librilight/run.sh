@@ -16,6 +16,7 @@ stage=0
 subsampling=4
 chaindir=exp/chain
 modelnum=1
+decode_nj=80
 . ./utils/parse_options.sh
 
 set -euo pipefail
@@ -251,21 +252,22 @@ fi
 
 # DECODING
 if [ $stage -eq 15 ]; then
-  #./utils/mkgraph.sh --self-loop-scale 1.0 \
-  #  data/lang_test_tgsmall ${tree} ${tree}/graph_tgsmall
-  #./local/prepare_test.sh --subsampling ${subsampling} --data ${unlabeled_data} 
+  ./utils/mkgraph.sh --self-loop-scale 1.0 \
+    data/lang_test_tgsmall ${tree} ${tree}/graph_tgsmall
+  ./local/prepare_test.sh --subsampling ${subsampling} --data ${unlabeled_data} 
   
-  #average_models.py `dirname ${chaindir}`/model${modelnum} 80 60 160  
-  #for ds in dev_clean dev_other test_clean test_other; do 
-  for ds in dev_clean; do
+  average_models.py `dirname ${chaindir}`/model${modelnum} 80 60 160  
+  for ds in dev_clean dev_other test_clean test_other; do 
     ./decode_nnet_pytorch.sh --min-lmwt 6 \
                            --max-lmwt 18 \
                            --skip-datadump true \
                            --modelname 60_160.mdl \
                            --acoustic-scale 1.0 \
                            --post-decode-acwt 10.0 \
+                           --nj ${decode_nj} \
                            data/${ds}_fbank exp/model${modelnum} \
                            ${tree}/graph_tgsmall exp/model${modelnum}/decode_60_160.mdl_graph_${ds}
+    echo ${decode_nj} > exp/model${modelnum}/decode_60_160.mdl_graph_${ds}/num_jobs
     ./steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
       data/lang_test_tg{small,large} \
       data/${ds}_fbank exp/model${modelnum}/decode_60_160.mdl_graph_${ds}{,_tglarge_rescored} 
@@ -277,11 +279,11 @@ if [ $stage -eq 16 ]; then
   modeldir=`dirname ${chaindir}`/model${modelnum}
   gen_dir=${modeldir}/generate_cond_160.mdl
   mkdir -p ${gen_dir}
-  generate_cmd="./utils/queue.pl --mem 2G --gpu 1 --config conf/gpu.conf ${gen_Dir}/log"
+  generate_cmd="./utils/queue.pl --mem 2G --gpu 1 --config conf/gpu.conf ${gen_dir}/log"
   ${generate_cmd} generate_conditional_from_buffer.py \
     --gpu \
-    --target 1084 1084 1084 1084 1084 \
-    --idim 80 --chunk-width 20 --left-context 4 --right-context 4 \
+    --target 1084 1084 1084 1084 1084\
+    --idim 80 --chunk-width 20 --left-context 10 --right-context 5 \
     --modeldir ${modeldir} --modelname 160.mdl \
     --dumpdir ${gen_dir} --batchsize 32
 fi
