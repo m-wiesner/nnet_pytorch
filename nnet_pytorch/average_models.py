@@ -31,7 +31,7 @@ def main():
     #)
     args =  parser.parse_args()
 
-    conf = json.load(open(args.modeldir + '/conf.json'))
+    conf = json.load(open(args.modeldir + '/conf.1.json'))
     conf['idim'] = args.idim
     new_model = models.MODELS[conf['model']].build_model(conf)
     new_dict = new_model.state_dict()

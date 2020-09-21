@@ -47,8 +47,8 @@ fi
 
 if [ $stage -le 2 ]; then
   # Get the train-100 subset 
-  #local/data_prep.sh ${unlabeled_data}/LibriSpeech/train-clean-100 data/train_100h
-  #./steps/make_mfcc.sh --cmd "$train_cmd" --nj 32 data/train_100h exp/make_mfcc/train_100h mfcc
+  local/data_prep.sh ${unlabeled_data}/LibriSpeech/train-clean-100 data/train_100h
+  ./steps/make_mfcc.sh --cmd "$train_cmd" --nj 32 data/train_100h exp/make_mfcc/train_100h mfcc
   ./utils/fix_data_dir.sh data/train_100h
   ./steps/compute_cmvn_stats.sh data/train_100h
   ./utils/fix_data_dir.sh data/train_100h
