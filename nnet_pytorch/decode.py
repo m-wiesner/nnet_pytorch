@@ -30,7 +30,7 @@ def main():
 
     # Load experiment configurations so that decoding uses the same parameters
     # as training
-    conf = json.load(open(args.modeldir + '/conf.json'))
+    conf = json.load(open(args.modeldir + '/conf.1.json'))
     
     dataset_args = eval(conf['datasets'])[0]
     mean_norm, var_norm = eval(conf['mean_var'])
@@ -170,7 +170,7 @@ def parse_arguments():
    
     # Args specific to different components
     args, leftover = parser.parse_known_args()
-    conf = json.load(open(args.modeldir + '/conf.json'))
+    conf = json.load(open(args.modeldir + '/conf.1.json'))
     HybridAsrDataset.add_args(parser)
     models.MODELS[conf['model']].add_args(parser) 
     parser.parse_args(leftover, namespace=args) 

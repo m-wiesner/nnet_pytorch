@@ -18,20 +18,20 @@ class HybridAsrDataset(object):
         parser.add_argument('--perturb-type', type=str, default='none')
         parser.add_argument('--validation-spks', type=int, default=5)
         parser.add_argument('--utt-subset', default=None)
-        parser.add_argument('--mean-var', default='(True, False)')
+        parser.add_argument('--mean-var', default="(True, 'norm')")
 
     def __init__(self, datadir, targets, num_targets,
         dtype=np.float32, memmap_affix='.dat',
         left_context=10, right_context=3, chunk_width=1,
-        batchsize=128, mean=True, var=False,
+        batchsize=128, mean=True, var='norm',
         skip_datadump=True, validation=1, utt_subset=None, subsample=1,
         perturb_type='none',
     ):
         # Load CMVN
         cmvn_scp = os.path.sep.join((datadir, 'cmvn.scp'))
-        self.perturb_type=perturb_type
-        self.mean=mean
-        self.var=var
+        self.perturb_type = perturb_type
+        self.mean = mean
+        self.var = var
         self.subsample = subsample
         self.spk2cmvn = load_cmvn(cmvn_scp)
         self.batchsize = batchsize
@@ -161,7 +161,7 @@ class HybridAsrDataset(object):
         }
         return Minibatch(x, target, metadata)
 
-    def apply_cmvn(self, x, utt_name, mean=False, var=False):
+    def apply_cmvn(self, x, utt_name, mean=False, var='norm', max_val=32.0, min_val=-16.0):
         '''
             Apply the speaker-level cmvn to each window (x).
         '''
@@ -169,6 +169,12 @@ class HybridAsrDataset(object):
             return x
         if mean:
             x_ = x - self.spk2cmvn[self.utt2spk[utt_name]]['mu']
-        if var:
-            x_ = x / np.sqrt(self.spk2cmvn[self.utt2spk[utt_name]]['var'])
+        else:
+            x_ = x
+        
+        if var == 'var':
+            x_ = x_ / np.sqrt(self.spk2cmvn[self.utt2spk[utt_name]]['var'])
+        elif var == 'norm':
+            x_ = x_ / (max_val - min_val)
+             
         return x_

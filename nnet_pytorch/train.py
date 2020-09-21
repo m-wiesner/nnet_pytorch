@@ -37,12 +37,16 @@ def main():
     # Resume training / dump training configurations
     if args.resume is not None:
         print("Loading former training configurations ...")
-        conf = json.load(open(args.expdir + '/conf.json'))
+        conf = json.load(
+            open('{}/conf.{}.json'.format(args.expdir, args.job))
+        )
         if conf['objective'] in ('SemisupLFMMI', 'LFMMI_EBM'):
             conf['l2_energy'] = args.l2_energy 
     else:
         # Dump training configurations
-        json.dump(vars(args), open(args.expdir + '/conf.json', 'w'),
+        json.dump(
+            vars(args),
+            open('{}/conf.{}.json'.format(args.expdir, args.job), 'w'),
             indent=4, separators=(',', ': ')
         )
         conf = vars(args)
@@ -186,7 +190,7 @@ def train(args, conf, datasets, model, objective, optimizer, lr_sched, device):
 
         torch.save(
             state_dict,
-            args.expdir + '/{}.mdl'.format(e + 1),
+            args.expdir + '/{}.{}.mdl'.format(e + 1, args.job),
         )
 
 
@@ -261,6 +265,7 @@ def parse_arguments():
         ]
     )
     parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--job', type=int, default=1)
     parser.add_argument('--objective', default='CrossEntropy',
         choices=[
             'CrossEntropy',

@@ -15,7 +15,7 @@ from .pychain.pychain.chain import ChainFunction
 class NumeratorFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, targets):
-        #exp_input = input.clamp(-30, 30).exp()
+        input = input.clamp(-30, 30).exp()
         B = input.size(0)
         num_grad = torch.zeros_like(input)
         num_grad.scatter_(2, targets.unsqueeze(2), 1.0) 

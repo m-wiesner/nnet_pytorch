@@ -1,19 +1,32 @@
-diff --git __init__.py __init__.py
+From c003fffc1b2f9acf7a558286f287fcdb0346acf9 Mon Sep 17 00:00:00 2001
+From: Matthew Wiesner <wiesner@jhu.edu>
+Date: Mon, 21 Sep 2020 13:48:20 -0400
+Subject: [PATCH] LFMMI_EBM pychain updates
+
+---
+ __init__.py         |  0
+ pychain/__init__.py |  1 -
+ pychain/chain.py    | 83 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 83 insertions(+), 1 deletion(-)
+ create mode 100644 __init__.py
+ create mode 100644 pychain/chain.py
+
+diff --git a/__init__.py b/__init__.py
 new file mode 100644
 index 0000000..e69de29
-diff --git pychain/__init__.py pychain/__init__.py
+diff --git a/pychain/__init__.py b/pychain/__init__.py
 index 890d65b..84a54e6 100644
---- pychain/__init__.py
-+++ pychain/__init__.py
+--- a/pychain/__init__.py
++++ b/pychain/__init__.py
 @@ -1,2 +1 @@
 -from .loss import *
  from .graph import *
-diff --git pychain/chain.py pychain/chain.py
+diff --git a/pychain/chain.py b/pychain/chain.py
 new file mode 100644
-index 0000000..e14005c
+index 0000000..1c04de4
 --- /dev/null
-+++ pychain/chain.py
-@@ -0,0 +1,67 @@
++++ b/pychain/chain.py
+@@ -0,0 +1,83 @@
 +# Copyright       2019 Yiwen Shao
 +#                 2020 Yiming Wang
 +
@@ -38,41 +51,56 @@ index 0000000..e14005c
 +
 +class ChainFunction(torch.autograd.Function):
 +    @staticmethod
-+    def forward(ctx, input, input_lengths, graphs, leaky_coefficient):
-+        exp_input = input.clamp(-30, 30).exp()
++    def forward(ctx, input, input_lengths, graphs, leaky_coefficient=1e-5):
++        input = input.clamp(-30, 30)  # clamp for both the denominator and the numerator
 +        B = input.size(0)
 +        if B != graphs.batch_size:
-+            raise ValueError("input batch size {0} does not equal to graph batch size {1}"
-+                             .format(B, graphs.batch_size))
-+        forward_transitions = graphs.forward_transitions
-+        forward_transition_indices = graphs.forward_transition_indices
-+        forward_transition_probs = graphs.forward_transition_probs
-+        backward_transitions = graphs.backward_transitions
-+        backward_transition_indices = graphs.backward_transition_indices
-+        backward_transition_probs = graphs.backward_transition_probs
-+        leaky_probs = graphs.leaky_probs
-+        num_states = graphs.num_states
-+        final_probs = graphs.final_probs
-+        start_state = graphs.start_state
-+        leaky_coefficient = leaky_coefficient
++            raise ValueError(
++                "input batch size ({}) does not equal to graph batch size ({})"
++                .format(B, graphs.batch_size)
++            )
 +        packed_data = torch.nn.utils.rnn.pack_padded_sequence(
-+            input, input_lengths, batch_first=True)
++            input, input_lengths, batch_first=True,
++        )
 +        batch_sizes = packed_data.batch_sizes
 +        input_lengths = input_lengths.cpu()
-+        objf, input_grad, _ = pychain_C.forward_backward(
-+            forward_transitions,
-+            forward_transition_indices,
-+            forward_transition_probs,
-+            backward_transitions,
-+            backward_transition_indices,
-+            backward_transition_probs,
-+            leaky_probs, final_probs,
-+            start_state,
-+            exp_input,
-+            batch_sizes,
-+            input_lengths,
-+            num_states,
-+            leaky_coefficient)
++        if not graphs.log_domain:  # usually for the denominator
++            exp_input = input.exp()
++            objf, input_grad, ok = pychain_C.forward_backward(
++                graphs.forward_transitions,
++                graphs.forward_transition_indices,
++                graphs.forward_transition_probs,
++                graphs.backward_transitions,
++                graphs.backward_transition_indices,
++                graphs.backward_transition_probs,
++                graphs.leaky_probs,
++                graphs.initial_probs,
++                graphs.final_probs,
++                graphs.start_state,
++                exp_input,
++                batch_sizes,
++                input_lengths,
++                graphs.num_states,
++                leaky_coefficient,
++            )
++        else:  # usually for the numerator
++            objf, log_probs_grad, ok = pychain_C.forward_backward_log_domain(
++                graphs.forward_transitions,
++                graphs.forward_transition_indices,
++                graphs.forward_transition_probs,
++                graphs.backward_transitions,
++                graphs.backward_transition_indices,
++                graphs.backward_transition_probs,
++                graphs.initial_probs,
++                graphs.final_probs,
++                graphs.start_state,
++                input,
++                batch_sizes,
++                input_lengths,
++                graphs.num_states,
++            )
++            input_grad = log_probs_grad.exp()
++
 +        ctx.save_for_backward(input_grad)
 +        return objf
 +
@@ -80,4 +108,8 @@ index 0000000..e14005c
 +    def backward(ctx, objf_grad):
 +        input_grad, = ctx.saved_tensors
 +        input_grad = torch.mul(input_grad, objf_grad)
++
 +        return input_grad, None, None, None
+-- 
+2.11.0
+
