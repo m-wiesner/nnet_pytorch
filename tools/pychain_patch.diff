@@ -1,7 +1,7 @@
-From c003fffc1b2f9acf7a558286f287fcdb0346acf9 Mon Sep 17 00:00:00 2001
+From 979aabbd5271081b890c3f85eb9e0b1e189478b4 Mon Sep 17 00:00:00 2001
 From: Matthew Wiesner <wiesner@jhu.edu>
-Date: Mon, 21 Sep 2020 13:48:20 -0400
-Subject: [PATCH] LFMMI_EBM pychain updates
+Date: Mon, 21 Sep 2020 18:34:49 -0400
+Subject: [PATCH] Adds LFMMI_EBM updates
 
 ---
  __init__.py         |  0

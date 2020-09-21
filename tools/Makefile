@@ -74,6 +74,6 @@ pychain: openfst venv
 	cd ../nnet_pytorch/objectives && \
 	git clone --single-branch --branch master https://github.com/YiwenShaoStephen/pychain.git && cd pychain && \
 	cp ../../../tools/pychain_patch.diff . && \
-	patch -p0 -i pychain_patch.diff && \
+	git apply pychain_patch.diff && \
 	cd openfst_binding && python3 setup.py install && \
 	cd ../pytorch_binding && python3 setup.py install;
