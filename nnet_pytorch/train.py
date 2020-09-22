@@ -278,7 +278,6 @@ def parse_arguments():
     )
     parser.add_argument('--subsample', type=int, default=3)
     parser.add_argument('--delay-updates', type=int, default=1)
-    parser.add_argument('--free-ram', type=int, default=100)
     parser.add_argument('--num-epochs', type=int, default=10)
     parser.add_argument('--batches-per-epoch', type=int, default=500)
     parser.add_argument('--grad-thresh', type=float, default=30.0) 
