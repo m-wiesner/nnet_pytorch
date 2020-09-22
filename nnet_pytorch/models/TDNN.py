@@ -22,7 +22,7 @@ class TDNN(torch.nn.Module):
             dropout=conf['tdnn_dropout'],
             prefinal_affine_dim=conf['tdnn_prefinal_dim'],
             subsample=conf['subsample'],
-            batch_norm_dropout=False
+            batch_norm_dropout=True
         )   
         return model
     
@@ -35,14 +35,16 @@ class TDNN(torch.nn.Module):
             [-3, 0, 3], [-3, 0, 3], [-3, 0, 3], [-3, 0, 3],
             [-3, 0, 3], [-3, 0, 3], [-3, 0, 3], [-3, 0, 3],
             [-3, 0, 3], [-3, 0, 3], [-3, 0, 3], [-3, 0, 3],
-        ], nonlin=F.relu, dropout=0.1, subsample=1, batch_norm_dropout=False,
+            [-3, 0, 3], [-3, 0, 3], [-3, 0, 3], [-3, 0, 3],
+            [-3, 0, 3], [-3, 0, 3], [-3, 0, 3], [-3, 0, 3],
+        ], nonlin=F.relu, dropout=0.1, subsample=1, batch_norm_dropout=True,
     ):
         super().__init__()
         
         # Proper TDNN layers
         odims_ = list(odims)
         odims_.insert(0, idim)
-        self.batch_norm_dropout = False
+        self.batch_norm_dropout = batch_norm_dropout
         self.dropout = dropout
         self.nonlin = nonlin
         self.subsample = subsample

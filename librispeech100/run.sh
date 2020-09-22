@@ -16,7 +16,8 @@ stage=0
 subsampling=4
 chaindir=exp/chain
 modelnum=1
-modelname=60_160.mdl
+modelname=100_160.mdl
+resume=
 testsets="dev_clean dev_other test_clean test_other"
 decode_nj=80
 . ./utils/parse_options.sh
@@ -178,8 +179,13 @@ fi
 
 # Supervised ChainWideResnet (Only works with subsampling == 4)
 if [ $stage -eq 13 ]; then
+  resume_opts=
+  if [ ! -z $resume ]; then
+    resume_opts="--resume ${resume}.mdl"
+  fi 
+
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
-  ./train_nnet_pytorch.sh \
+  ./train_nnet_pytorch.sh ${resume_opts} \
     --gpu true \
     --skip-datadump true \
     --objective LFMMI \
@@ -210,9 +216,54 @@ if [ $stage -eq 13 ]; then
     `dirname ${chaindir}`/model${modelnum}
 fi
 
+# Multigpu training of Chain-WideResNet without optimizer state averaging
 if [ $stage -eq 20 ]; then
+  resume_opts=
+  if [ ! -z $resume ]; then
+    resume_opts="--resume ${resume}.mdl"
+  fi 
+  
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
-  ./local/train_async_parallel.sh \
+  ./local/train_async_parallel.sh ${resume_opts} \
+    --gpu true \
+    --skip-datadump true \
+    --objective LFMMI \
+    --denom-graph ${chaindir}/den.fst \
+    --num-pdfs ${num_pdfs} \
+    --subsample ${subsampling} \
+    --model ChainWideResnet \
+    --depth 28 \
+    --width 10 \
+    --warmup 15000 \
+    --decay 1e-05 \
+    --xent 0.1 \
+    --l2 0.0001 \
+    --weight-decay 1e-07 \
+    --lr 0.0002 \
+    --batches-per-epoch 250 \
+    --num-epochs 300 \
+    --validation-spks 0 \
+    --nj 2 \
+    "[ \
+        {\
+    'data': 'data/train_100h_fbank', \
+    'tgt': 'data/train_100h_fbank/pdfid.${subsampling}.tgt', \
+    'batchsize': 32, 'chunk_width': 140, \
+    'left_context': 10, 'right_context': 5
+        }\
+     ]" \
+    `dirname ${chaindir}`/model${modelnum}
+fi
+
+# Multigpu training of Chain-WideResNet with optimizer state averaging
+if [ $stage -eq 21 ]; then
+  resume_opts=
+  if [ ! -z $resume ]; then
+    resume_opts="--resume ${resume}.mdl"
+  fi 
+
+  num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
+  ./local/train_async_parallel2.sh ${resume_opts} \
     --gpu true \
     --skip-datadump true \
     --objective LFMMI \
@@ -232,7 +283,6 @@ if [ $stage -eq 20 ]; then
     --num-epochs 200 \
     --validation-spks 0 \
     --nj 2 \
-    --resume 78 \
     "[ \
         {\
     'data': 'data/train_100h_fbank', \
@@ -245,10 +295,57 @@ if [ $stage -eq 20 ]; then
 fi
 
 
+# Multigpu Chain training of TDNN with optimizer state averaging
+if [ $stage -eq 22 ]; then
+  resume_opts=
+  if [ ! -z $resume ]; then
+    resume_opts="--resume ${resume}.mdl"
+  fi 
+  
+  num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
+  ./local/train_async_parallel2.sh ${resume_opts} \
+    --gpu true \
+    --skip-datadump true \
+    --objective LFMMI \
+    --denom-graph ${chaindir}/den.fst \
+    --num-pdfs ${num_pdfs} \
+    --subsample ${subsampling} \
+    --model ChainTDNN \
+    --hdim 1024  \
+    --num-layers 13 \
+    --dropout 0.2 \
+    --prefinal-dim 192 \
+    --warmup 15000 \
+    --decay 1e-05 \
+    --xent 0.1 \
+    --l2 0.0001 \
+    --weight-decay 1e-07 \
+    --lr 0.0002 \
+    --batches-per-epoch 250 \
+    --num-epochs 250 \
+    --validation-spks 0 \
+    --nj 2 \
+    "[ \
+        {\
+    'data': 'data/train_100h_fbank', \
+    'tgt': 'data/train_100h_fbank/pdfid.${subsampling}.tgt', \
+    'batchsize': 128, 'chunk_width': 140, \
+    'left_context': 10, 'right_context': 5
+        }\
+     ]" \
+    `dirname ${chaindir}`/model${modelnum}
+fi
+
+
+
 # Semi-Supervised ChainWideResnet (Only works with subsampling == 4)
 if [ $stage -eq 14 ]; then
+  resume_opts=
+  if [ ! -z $resume ]; then
+    resume_opts="--resume ${resume}.mdl"
+  fi 
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
-  ./train_nnet_pytorch.sh \
+  ./train_nnet_pytorch.sh ${resume_opts} \
     --gpu true \
     --skip-datadump true \
     --objective SemisupLFMMI \
@@ -313,7 +410,7 @@ if [ $stage -eq 15 ]; then
   fi
 
   # Average models (This gives better performance)
-  #average_models.py `dirname ${chaindir}`/model${modelnum} 80 60 160  
+  # average_models.py `dirname ${chaindir}`/model${modelnum} 80 200 250 
   for ds in $testsets; do 
     ./decode_nnet_pytorch.sh --min-lmwt 6 \
                            --max-lmwt 18 \

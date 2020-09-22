@@ -160,7 +160,7 @@ elif [[ $model = "WideResnet" || $model = "ChainWideResnet" ]]; then
 fi
 
 ###############################################################################
-# Training (IMPORTANT PART)
+# Training 
 ###############################################################################
 echo""
 echo "--------------- `date` -------------"
@@ -174,7 +174,7 @@ if [ ! -z $resume ]; then
   start_epoch=$(( ${resume} + 1))
 fi
 
-[ -f ${odir}/.error ] && rm ${odir}/.error
+rm ${odir}/.error
 
 for e in `seq ${start_epoch} ${num_epochs}`; do
   epoch_seed=`echo $nj $e | awk '{print $1*($2-1) + 1}'`
@@ -216,7 +216,7 @@ for e in `seq ${start_epoch} ${num_epochs}`; do
   for j in `seq 1 $nj`; do
     combine_models="${combine_models} ${odir}/${e}.${j}.mdl"
   done
-  combine_models.py ${odir}/${e}.mdl 80 ${odir}/conf.1.json --models ${combine_models}
+  combine_models2.py ${odir}/${e}.mdl 80 ${odir}/conf.1.json --models ${combine_models}
   
   resume_opts="--resume ${e}.mdl"
 done
