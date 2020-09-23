@@ -69,7 +69,7 @@ def main():
         # To combine models, we just average the weights
         for name, p in state_dict['model'].items():
             if name in new_mdl_dict:
-                new_mdl_dict[name].add_(fraction, p) 
+                new_mdl_dict[name].add_(p, alpha=fraction) 
   
         #--------------------- Objectives ---------------------
         # To combine objectives is harder: We average parameter weights if

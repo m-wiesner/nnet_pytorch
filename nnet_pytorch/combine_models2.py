@@ -55,11 +55,12 @@ def main():
     new_objective_dict = objective.state_dict()
 
     for name, param in new_mdl_dict.items():
-        param.mul_(0.0)
-
+        if len(param.size()) > 0: 
+            param.mul_(0.0)
+    
     fraction = 1.0 / (len(args.models)) 
     for i, m in enumerate(args.models):
-        print("Idx: ", i)
+        print("Combining Model ", i, " ...")
         state_dict = torch.load(m, map_location=torch.device('cpu'))
         if i == 0 and 'buffer' in state_dict:
             new_buffer = torch.FloatTensor(
@@ -73,8 +74,11 @@ def main():
         # To combine models, we just average the weights
         for name, p in state_dict['model'].items():
             if name in new_mdl_dict:
-                new_mdl_dict[name].add_(fraction, p) 
-  
+                if len(p.size()) != 0: 
+                    new_mdl_dict[name].add_(p, alpha=fraction)
+                else:
+                    new_mdl_dict[name] = (p * fraction).type(new_mdl_dict[name].dtype)
+
         #--------------------- Objectives ---------------------
         # To combine objectives is harder: We average parameter weights if
         # applicable, but in the case of some models such as the EBM models
@@ -88,7 +92,7 @@ def main():
             # Random sample of (fraction * buffersize) indices to take
             buffsize = len(state_dict['buffer'])
             num_samples = math.floor(fraction * buffsize)
-            idxs = torch.randint(0, buffsize, num_samples)
+            idxs = torch.randint(0, buffsize, (num_samples,))
             if hasattr(objective, 'sgld_sampler'):
                 # Sample fraction of elements from buffer 
                 new_buffer[i*num_samples:(i+1)*num_samples] = state_dict['buffer'][idxs].cpu()
@@ -110,7 +114,7 @@ def main():
         new_state_dict = {
             **new_state_dict,
             'buffer': new_buffer,
-            'buffer_numsteps': new_buffer_num_steps, 
+            'buffer_numsteps': new_buffer_numsteps, 
         }
 
     torch.save(

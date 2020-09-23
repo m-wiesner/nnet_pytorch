@@ -96,14 +96,14 @@ class SGLD(Optimizer):
                     continue
                 d_p = p.grad.data
                 if weight_decay != 0:
-                    d_p.add_(weight_decay, p.data)
+                    d_p.add_(p.data, alpha=weight_decay)
                 if momentum != 0:
                     param_state = self.state[p]
                     if 'momentum_buffer' not in param_state:
                         buf = param_state['momentum_buffer'] = torch.clone(d_p).detach()
                     else:
                         buf = param_state['momentum_buffer']
-                        buf.mul_(momentum).add_(1 - dampening, d_p)
+                        buf.mul_(momentum).add_(d_p, alpha=1-dampening)
                     if nesterov:
                         d_p = d_p.add(momentum, buf)
                     else:
@@ -112,8 +112,8 @@ class SGLD(Optimizer):
                 langevin_std = 1.0 / replay_correction
                 p.data.add_(
                     self.langevin_noise(p.data, std=langevin_std).add_(
-                        -group['lr'],
-                        d_p.div_(replay_correction)
+                        d_p.div_(replay_correction),
+                        alpha=-group['lr'],
                     )
                 )
 

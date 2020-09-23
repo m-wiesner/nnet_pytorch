@@ -111,14 +111,14 @@ class AcceleratedSGLD(Optimizer):
                 opt_lr = (self.epsilon / grad_norm) if opt_lr > 0 else -opt_lr
                 d_p = p.grad.data
                 if weight_decay != 0:
-                    d_p.add_(weight_decay, p.data)
+                    d_p.add_(p.data, alpha=weight_decay)
                 
                 replay_correction = numsteps[:, None, None] ** self.stepscale
                 langevin_std = 1.0 / replay_correction
                 
                 self.state[p]['update'] = self.langevin_noise(p.data, std=langevin_std).add_(
-                    -group['lr'] * opt_lr,
-                    d_p.div_(replay_correction)
+                    d_p.div_(replay_correction),
+                    alpha=-group['lr'] * opt_lr,
                 )
                 p.data.add_(self.state[p]['update'])
                 self.state[p]['opt_lr'] = opt_lr 
