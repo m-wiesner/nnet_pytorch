@@ -65,7 +65,6 @@ def main():
                 right_context=ds['right_context'],
                 chunk_width=ds['chunk_width'],
                 batchsize=ds['batchsize'],
-                num_split=ds['num_split'],
                 validation=args.validation_spks,
                 subsample=args.subsample,
                 mean=mean_norm, var=var_norm,

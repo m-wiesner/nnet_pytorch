@@ -2,6 +2,7 @@
 
 data=/export/a15/vpanayotov/data
 subsampling=4
+num_split=20
 
 . ./cmd.sh
 . ./path.sh
@@ -21,7 +22,7 @@ for part in dev-clean dev-other test-clean test-other; do
   ./steps/compute_cmvn_stats.sh data/${dataname}_fbank
   ./utils/fix_data_dir.sh data/${dataname}_fbank
 
-  memmap_data.py data/${dataname}_fbank/feats.scp data/${dataname}_fbank/feats.scp.dat
+  ./local/split_memmap_data.sh data/${dataname}_fbank $num_split 
   python local/prepare_unlabeled_tgt.py --subsample ${subsampling} \
     data/${dataname}_fbank/utt2num_frames > data/${dataname}_fbank/pdfid.${subsampling}.tgt
 done

@@ -22,7 +22,7 @@ class HybridAsrDataset(object):
     def __init__(self, datadir, targets, num_targets,
         dtype=np.float32, memmap_affix='.dat',
         left_context=10, right_context=3, chunk_width=1,
-        batchsize=128, num_split=1, mean=True, var='norm',
+        batchsize=128, mean=True, var='norm',
         validation=1, utt_subset=None, subsample=1,
         perturb_type='none',
     ):
@@ -40,6 +40,10 @@ class HybridAsrDataset(object):
         with open(utt2spk) as f:
             self.utt2spk, self.spk2utt = load_utt2spk(f)
        
+        # num splits
+        with open(os.path.sep.join((datadir, 'num_split'))) as f:
+            num_split = int(f.readline().strip())
+
         # Get some held out speakers 
         self.heldout = set()
         if validation > 0:
@@ -50,13 +54,13 @@ class HybridAsrDataset(object):
         f_memmap = feats_scp + memmap_affix
         metadata_path = os.path.sep.join((datadir,'mapped','metadata'))
         self.data_path = os.path.sep.join((datadir,'mapped','feats.dat'))
-        utt_lengths = []
+        utt_lengths = {}
         offsets = []
         data_shape = []
         for n in range(1, 1 + num_split):
             with open(metadata_path + '.' + str(n) + '.pkl', 'rb') as f:
                 utt_lengths_n, offsets_n, data_shape_n = pickle.load(f)
-                utt_lengths.append(utt_lengths_n)
+                utt_lengths.update(utt_lengths_n)
                 offsets.append(offsets_n)
                 data_shape.append(data_shape_n)
        
@@ -116,7 +120,6 @@ class HybridAsrDataset(object):
                 mode='r',
             )
         )
-        print (len(self.data))
 
     def __getitem__(self, index):
         '''
@@ -142,7 +145,7 @@ class HybridAsrDataset(object):
         # Check that the utterances has a target (successful alignment)
         if utt_name not in self.targets:
             return None 
-        utt_length = self.utt_lengths[split_idx][utt_name]
+        utt_length = self.utt_lengths[utt_name]
         # Retrieve the appropriate target
         target_start = (idx - offset) // self.subsample
         target_end = min(

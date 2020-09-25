@@ -3,7 +3,6 @@
 . ./path.sh
 
 batchsize=512
-skip_datadump=false
 checkpoint=final.mdl
 prior_scale=1.0
 prior_floor=-20.0
@@ -25,7 +24,7 @@ stage=0
 . ./utils/parse_options.sh
 if [ $# -ne 4 ]; then
   echo "Usage: ./decode_nnet_pytorch.sh <data> <pytorch_model> <graphdir> <odir>"
-  echo " --batchsize ${batchsize} --skip-datadump ${skip_datadump}"
+  echo " --batchsize ${batchsize} "
   echo " --checkpoint ${checkpoint} --prior-scale ${prior_scale} --prior-floor ${prior_floor} --prior-name ${prior_name}"
   echo " --min-active ${min_active} --max-active ${max_active}"
   echo " --max-mem ${max_mem} --lattice-beam ${lattice_beam}"
@@ -45,14 +44,6 @@ trans_mdl=${amdir}/final.mdl
 words_file=${graphdir}/words.txt
 hclg=${graphdir}/HCLG.fst
 
-skip_datadump_opts=
-if $skip_datadump; then
-  skip_datadump_opts="--skip-datadump"
-else
-  memmap_data.py ${data}/feats.scp ${data}/feats.scp.dat  
-  skip_datadump_opts="--skip-datadump"
-fi
-
 mkdir -p ${odir}/log
 
 decode_cmd="utils/queue.pl --mem 2G -l hostname='!b02*&!a*&!c*'" # The 'a' machines are just too slow
@@ -65,8 +56,7 @@ if [ $stage -le 0 ]; then
 
 ${decode_cmd} JOB=1:${nj} ${odir}/log/decode.JOB.log \
     ./utils/split_scp.pl -j ${nj} \$\[JOB -1\] ${segments} \|\
-    decode.py ${skip_datadump_opts} \
-      --datadir ${data} \
+    decode.py --datadir ${data} \
       --modeldir ${pytorch_model} \
       --dumpdir ${odir} \
       --checkpoint ${checkpoint} \

@@ -62,7 +62,7 @@ def main():
 
     # We just need to add in the input dimensions. This depends on the type of
     # features used.
-    conf['idim'] = dataset.data_shape[1] 
+    conf['idim'] = dataset.data_shape[0][1] 
     
     print(conf) 
     # Build the model and send to the device (cpu or gpu). Generally cpu.
@@ -109,7 +109,7 @@ def decode(args, dataset, model, priors, device='cpu'):
         args.words_file, args.trans_mdl, args.hclg,
         args.post_decode_acwt, args.dumpdir, args.job
     )
-
+    
     # Do the decoding (dumping senone posteriors)
     model.eval()
     with torch.no_grad():

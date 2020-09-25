@@ -20,7 +20,6 @@ mean_var="(True, 'norm')"
 
 # Debugging and data dumping
 debug=false
-skip_datadump=true
 
 # Model parameters
 subsample=3
@@ -74,7 +73,7 @@ l2_energy=0.0
 . ./utils/parse_options.sh
 if [ $# -ne 2 ]; then
   echo "Usage: ./train_nnet_pytorch.sh <datasets> <odir>"
-  echo " --gpu ${gpu} --debug ${debug} --skip-datadump ${skip_datadump} --priors-only ${priors_only}"
+  echo " --gpu ${gpu} --debug ${debug} --priors-only ${priors_only}"
   echo " --batches-per-epoch ${batches_per_epoch} --num-epochs ${num_epochs} --delay-updates ${delay_updates}"
   echo " --validation-spks ${validation_spks} --perturb-spk ${perturb_spk}"
   echo " --model ${model} --objective ${objective} --num-pdfs ${num_pdfs} --subsample ${subsample}"
@@ -116,13 +115,6 @@ train_cmd=""
 if $gpu; then
   gpu_opts="--gpu"
   train_cmd="utils/queue.pl --mem 2G --gpu 1 --config conf/gpu.conf ${odir}/log" 
-fi
-
-# Dumpy data (Memory map). We only need to do this once and can skip it after
-# that
-skip_datadump_opts=""
-if $skip_datadump; then
-  skip_datadump_opts="--skip-datadump"
 fi
 
 # Perturbs speaker means
@@ -178,7 +170,7 @@ echo""
 echo "--------------- `date` -------------"
 echo ""
 # Train
-${train_cmd} train.py ${gpu_opts} ${resume_opts} ${init_opts} ${skip_datadump_opts} \
+${train_cmd} train.py ${gpu_opts} ${resume_opts} ${init_opts} \
   ${perturb_spk_opts} ${priors_only_opts} \
   ${obj_fun_opts} \
   "${mdl_opts[@]}" \

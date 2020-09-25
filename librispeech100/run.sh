@@ -177,48 +177,13 @@ if [ $stage -le 11 ]; then
 fi
 
 if [ $stage -le 12 ]; then
-  mapped_dir=data/train_100h_fbank/mapped # don't change this path
-  mkdir -p $mapped_dir
-  echo "$0: Splitting data in $num_split parts"
-  # spread the mapped numpy arrays over various machines, as this data-set is quite large.
-  if [[  $(hostname -f) ==  *.clsp.jhu.edu ]]; then
-    utils/create_split_dir.pl /export/b{11,12,13,14}/$USER/kaldi-data/egs/librispeech100/$mapped_dir/storage \
-      $mapped_dir/storage
-  fi
-  utils/split_data.sh data/train_100h_fbank $num_split
-  for n in $(seq $num_split); do
-    # the next command does nothing unless $mapped_feats_dir/storage/ exists, see
-    # utils/create_data_link.pl for more info.
-    utils/create_data_link.pl $mapped_dir/feats.dat.$n
-  done
-  $train_cmd JOB=1:$num_split exp/mfcc/train_100h_fbank/memmap_data.JOB.log \
-    memmap_data.py data/train_100h_fbank/split${num_split}/JOB/feats.scp $mapped_dir/feats.dat.JOB \
-    $mapped_dir/metadata.JOB
-  echo $num_split > data/train_100h_fbank/num_split
-
+  ./local/split_memmap_data.sh data/train_100h_fbank ${num_split} 
   ali-to-pdf ${tree}/final.mdl ark:"gunzip -c ${tree}/ali.*.gz |" ark,t:data/train_100h_fbank/pdfid.${subsampling}.tgt
 fi
 
-if [ $stage -le 13 ]; then
-  mapped_dir=data/train_860/mapped # don't change this path
-  mkdir -p $mapped_dir
-  echo "$0: Splitting data in $num_split parts"
-  # spread the mapped numpy arrays over various machines, as this data-set is quite large.
-  if [[  $(hostname -f) ==  *.clsp.jhu.edu ]]; then
-    utils/create_split_dir.pl /export/b{11,12,13,14}/$USER/kaldi-data/egs/librispeech100/$mapped_dir/storage \
-      $mapped_dir/storage
-  fi
-  utils/split_data.sh data/train_100h_fbank $num_split
-  for n in $(seq $num_split); do
-    # the next command does nothing unless $mapped_feats_dir/storage/ exists, see
-    # utils/create_data_link.pl for more info.
-    utils/create_data_link.pl $mapped_dir/feats.dat.$n
-  done
-  $train_cmd JOB=1:$num_split exp/mfcc/train_860/memmap_data.JOB.log \
-    memmap_data.py data/train_860/split${num_split}/JOB/feats.scp $mapped_dir/feats.dat.JOB \
-    $mapped_dir/metadata.JOB
-  echo $num_split > data/train_860/num_split
 
+if [ $stage -eq 13 ]; then
+  ./local/split_memmap_data.sh data/train_860 ${num_split} 
   python local/prepare_unlabeled_tgt.py --subsample ${subsampling} data/train_860/utt2num_frames > data/train_860/pdfid.${subsampling}.tgt
 fi
 
@@ -232,7 +197,6 @@ if [ $stage -eq 14 ]; then
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
   ./train_nnet_pytorch.sh ${resume_opts} \
     --gpu true \
-    --skip-datadump true \
     --objective LFMMI \
     --denom-graph ${chaindir}/den.fst \
     --num-pdfs ${num_pdfs} \
@@ -270,7 +234,6 @@ if [ $stage -eq 20 ]; then
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
   ./local/train_async_parallel.sh ${resume_opts} \
     --gpu true \
-    --skip-datadump true \
     --objective LFMMI \
     --denom-graph ${chaindir}/den.fst \
     --num-pdfs ${num_pdfs} \
@@ -292,7 +255,7 @@ if [ $stage -eq 20 ]; then
         {\
     'data': 'data/train_100h_fbank', \
     'tgt': 'data/train_100h_fbank/pdfid.${subsampling}.tgt', \
-    'batchsize': 32, 'chunk_width': 140, 'num_split': ${num_split}, \
+    'batchsize': 32, 'chunk_width': 140, \
     'left_context': 10, 'right_context': 5
         }\
      ]" \
@@ -309,7 +272,6 @@ if [ $stage -eq 21 ]; then
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
   ./local/train_async_parallel2.sh ${resume_opts} \
     --gpu true \
-    --skip-datadump true \
     --objective LFMMI \
     --denom-graph ${chaindir}/den.fst \
     --num-pdfs ${num_pdfs} \
@@ -331,7 +293,7 @@ if [ $stage -eq 21 ]; then
         {\
     'data': 'data/train_100h_fbank', \
     'tgt': 'data/train_100h_fbank/pdfid.${subsampling}.tgt', \
-    'batchsize': 32, 'chunk_width': 140, 'num_split': ${num_split}, \
+    'batchsize': 32, 'chunk_width': 140, \
     'left_context': 10, 'right_context': 5
         }\
      ]" \
@@ -348,7 +310,6 @@ if [ $stage -eq 22 ]; then
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
   ./local/train_async_parallel2.sh ${resume_opts} \
     --gpu true \
-    --skip-datadump true \
     --objective LFMMI \
     --denom-graph ${chaindir}/den.fst \
     --num-pdfs ${num_pdfs} \
@@ -372,7 +333,7 @@ if [ $stage -eq 22 ]; then
         {\
     'data': 'data/train_100h_fbank', \
     'tgt': 'data/train_100h_fbank/pdfid.${subsampling}.tgt', \
-    'batchsize': 128, 'chunk_width': 140, 'num_split': ${num_split}, \
+    'batchsize': 128, 'chunk_width': 140, \
     'left_context': 10, 'right_context': 5
         }\
      ]" \
@@ -390,7 +351,6 @@ if [ $stage -eq 14 ]; then
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
   ./local/train_async_parallel2.sh ${resume_opts} \
     --gpu true \
-    --skip-datadump true \
     --objective SemisupLFMMI \
     --denom-graph ${chaindir}/den.fst \
     --num-pdfs ${num_pdfs} \
@@ -428,13 +388,13 @@ if [ $stage -eq 14 ]; then
         {\
     'data': 'data/train_100h_fbank', \
     'tgt': 'data/train_100h_fbank/pdfid.${subsampling}.tgt', \
-    'batchsize': 32, 'chunk_width': 140, 'num_split': ${num_split}, \
+    'batchsize': 32, 'chunk_width': 140, \
     'left_context': 10, 'right_context': 5 \
         },\
         {\
      'data': 'data/train_860', \
      'tgt': 'data/train_860/pdfid.${subsampling}.tgt', \
-     'batchsize': 32, 'chunk_width': 20, 'num_split': ${num_split}, \
+     'batchsize': 32, 'chunk_width': 20, \
      'left_context': 5, 'right_context': 5 \
        },\
      ]" \
@@ -450,26 +410,26 @@ if [ $stage -eq 15 ]; then
   fi
 
   # Prepare the test sets if not already done
-  if [ ! -f data/dev_clean_fbank/feats.scp.dat ]; then
+  if [ ! -f data/dev_clean_fbank/mapped/feats.dat.1 ]; then
     ./local/prepare_test.sh --subsampling ${subsampling} --data ${unlabeled_data} 
   fi
 
   # Average models (This gives better performance)
-  average_models.py `dirname ${chaindir}`/${model_dirname} 80 180 220 
+  #average_models.py `dirname ${chaindir}`/${model_dirname} 80 180 220 
   for ds in $testsets; do 
     ./decode_nnet_pytorch.sh --min-lmwt 6 \
                            --max-lmwt 18 \
-                           --skip-datadump true \
-                           --modelname ${checkpoint} \
+                           --checkpoint ${checkpoint} \
                            --acoustic-scale 1.0 \
                            --post-decode-acwt 10.0 \
                            --nj ${decode_nj} \
                            data/${ds}_fbank exp/${model_dirname} \
                            ${tree}/graph_tgsmall exp/${model_dirname}/decode_${checkpoint}_graph_${ds}
+    
     echo ${decode_nj} > exp/${model_dirname}/decode_${checkpoint}_graph_${ds}/num_jobs
     ./steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
-      data/lang_test_{tgsmall,tglarge} \
-      data/${ds}_fbank exp/${model_dirname}/decode_${checkpoint}_graph_${ds}{,_tglarge_rescored} 
+      data/lang_test_{tgsmall,fglarge} \
+      data/${ds}_fbank exp/${model_dirname}/decode_${checkpoint}_graph_${ds}{,_fglarge_rescored} 
   done
 fi
 
