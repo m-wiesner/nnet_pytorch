@@ -94,7 +94,7 @@ def batches(n, dataset):
     '''
     batchsize = dataset.batchsize
     batchlength = dataset.left_context + dataset.right_context + dataset.chunk_width
-    batchdim = dataset.data_shape[1]
+    batchdim = dataset.data_shape[0][1]
     for b in range(n):
         # Initialize batch
         input_tensor = torch.zeros((batchsize, batchlength, batchdim))
@@ -105,9 +105,12 @@ def batches(n, dataset):
         name, index, offset, length = [], [], [], []
         i = 0
         while i < batchsize:
+            # first sample a data split at random
+            split_idx = random.randint(0, len(dataset.data_shape) - 1)
+            # now sample a data point from this split
             # random.randint includes the endpoints
-            idx = random.randint(0, dataset.data_shape[0] - 1)
-            sample = dataset[idx] 
+            idx = random.randint(0, dataset.data_shape[split_idx][0] - 1)
+            sample = dataset[(split_idx,idx)]
 
             # Sample did not have paired target
             if sample is None:
@@ -148,7 +151,7 @@ def batches(n, dataset):
         
         # Memmap will consume more and more RAM if permitted. This periodically
         # forces the buffer to clear by deleting and recreating the memmap.
-        dataset.free_ram()
+        dataset.free_ram(split_idx)
 
 def multiset_batches(n, sets):
     '''

@@ -111,7 +111,6 @@ if $debug; then
 fi
 
 # GPU vs. CPU training command
-train_cmd=""
 if $gpu; then
   gpu_opts="--gpu"
   train_cmd="utils/queue.pl --mem 2G --gpu 1 --config conf/gpu.conf" 

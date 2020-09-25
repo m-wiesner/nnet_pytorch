@@ -20,6 +20,7 @@ modelname=100_160.mdl
 resume=
 testsets="dev_clean dev_other test_clean test_other"
 decode_nj=80
+num_split=20 # number of splits for memory-mapped data for training
 . ./utils/parse_options.sh
 
 set -euo pipefail
@@ -171,14 +172,53 @@ if [ $stage -le 11 ]; then
 fi
 
 if [ $stage -le 12 ]; then
-  memmap_data.py data/train_100h_fbank/feats.scp data/train_100h_fbank/feats.scp.dat
+  mapped_dir=data/train_100h_fbank/mapped # don't change this path
+  mkdir -p $mapped_dir
+  echo "$0: Splitting data in $num_split parts"
+  # spread the mapped numpy arrays over various machines, as this data-set is quite large.
+  if [[  $(hostname -f) ==  *.clsp.jhu.edu ]]; then
+    utils/create_split_dir.pl /export/b{11,12,13,14}/$USER/kaldi-data/egs/librispeech100/$mapped_dir/storage \
+      $mapped_dir/storage
+  fi
+  utils/split_data.sh data/train_100h_fbank $num_split
+  for n in $(seq $num_split); do
+    # the next command does nothing unless $mapped_feats_dir/storage/ exists, see
+    # utils/create_data_link.pl for more info.
+    utils/create_data_link.pl $mapped_dir/feats.dat.$n
+  done
+  $train_cmd JOB=1:$num_split exp/mfcc/train_100h_fbank/memmap_data.JOB.log \
+    memmap_data.py data/train_100h_fbank/split${num_split}/JOB/feats.scp $mapped_dir/feats.dat.JOB \
+    $mapped_dir/metadata.JOB
+  echo $num_split > data/train_100h_fbank/num_split
+
   ali-to-pdf ${tree}/final.mdl ark:"gunzip -c ${tree}/ali.*.gz |" ark,t:data/train_100h_fbank/pdfid.${subsampling}.tgt
-  memmap_data.py data/train_860/feats.scp data/train_860/feats.scp.dat
+fi
+
+if [ $stage -le 13 ]; then
+  mapped_dir=data/train_860/mapped # don't change this path
+  mkdir -p $mapped_dir
+  echo "$0: Splitting data in $num_split parts"
+  # spread the mapped numpy arrays over various machines, as this data-set is quite large.
+  if [[  $(hostname -f) ==  *.clsp.jhu.edu ]]; then
+    utils/create_split_dir.pl /export/b{11,12,13,14}/$USER/kaldi-data/egs/librispeech100/$mapped_dir/storage \
+      $mapped_dir/storage
+  fi
+  utils/split_data.sh data/train_100h_fbank $num_split
+  for n in $(seq $num_split); do
+    # the next command does nothing unless $mapped_feats_dir/storage/ exists, see
+    # utils/create_data_link.pl for more info.
+    utils/create_data_link.pl $mapped_dir/feats.dat.$n
+  done
+  $train_cmd JOB=1:$num_split exp/mfcc/train_860/memmap_data.JOB.log \
+    memmap_data.py data/train_860/split${num_split}/JOB/feats.scp $mapped_dir/feats.dat.JOB \
+    $mapped_dir/metadata.JOB
+  echo $num_split > data/train_860/num_split
+
   python local/prepare_unlabeled_tgt.py --subsample ${subsampling} data/train_860/utt2num_frames > data/train_860/pdfid.${subsampling}.tgt
 fi
 
 # Supervised ChainWideResnet (Only works with subsampling == 4)
-if [ $stage -eq 13 ]; then
+if [ $stage -eq 14 ]; then
   resume_opts=
   if [ ! -z $resume ]; then
     resume_opts="--resume ${resume}.mdl"
@@ -248,7 +288,7 @@ if [ $stage -eq 20 ]; then
         {\
     'data': 'data/train_100h_fbank', \
     'tgt': 'data/train_100h_fbank/pdfid.${subsampling}.tgt', \
-    'batchsize': 32, 'chunk_width': 140, \
+    'batchsize': 32, 'chunk_width': 140, 'num_split': ${num_split}, \
     'left_context': 10, 'right_context': 5
         }\
      ]" \
@@ -287,13 +327,12 @@ if [ $stage -eq 21 ]; then
         {\
     'data': 'data/train_100h_fbank', \
     'tgt': 'data/train_100h_fbank/pdfid.${subsampling}.tgt', \
-    'batchsize': 32, 'chunk_width': 140, \
+    'batchsize': 32, 'chunk_width': 140, 'num_split': ${num_split}, \
     'left_context': 10, 'right_context': 5
         }\
      ]" \
     `dirname ${chaindir}`/model${modelnum}
 fi
-
 
 # Multigpu Chain training of TDNN with optimizer state averaging
 if [ $stage -eq 22 ]; then
@@ -329,7 +368,7 @@ if [ $stage -eq 22 ]; then
         {\
     'data': 'data/train_100h_fbank', \
     'tgt': 'data/train_100h_fbank/pdfid.${subsampling}.tgt', \
-    'batchsize': 128, 'chunk_width': 140, \
+    'batchsize': 128, 'chunk_width': 140, 'num_split': ${num_split}, \
     'left_context': 10, 'right_context': 5
         }\
      ]" \
@@ -383,13 +422,13 @@ if [ $stage -eq 14 ]; then
         {\
     'data': 'data/train_100h_fbank', \
     'tgt': 'data/train_100h_fbank/pdfid.${subsampling}.tgt', \
-    'batchsize': 32, 'chunk_width': 140, \
+    'batchsize': 32, 'chunk_width': 140, 'num_split': ${num_split}, \
     'left_context': 10, 'right_context': 5 \
         },\
         {\
      'data': 'data/train_860', \
      'tgt': 'data/train_860/pdfid.${subsampling}.tgt', \
-     'batchsize': 32, 'chunk_width': 40, \
+     'batchsize': 32, 'chunk_width': 40, 'num_split': ${num_split}, \
      'left_context': 5, 'right_context': 5 \
        },\
      ]" \
