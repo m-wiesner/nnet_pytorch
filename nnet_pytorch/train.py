@@ -73,7 +73,7 @@ def main():
 
 
     # Get the feature input dimension (needed for the model)
-    conf['idim'] = datasets[0].data_shape[1] 
+    conf['idim'] = datasets[0].data_shape[0][1] 
 
     # Define model
     print("Defining model ...")
