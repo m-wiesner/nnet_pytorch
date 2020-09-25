@@ -102,15 +102,16 @@ def batches(n, dataset):
             (batchsize, dataset.subsample_chunk_width),
             dtype=torch.int64
         )
-        name, index, offset, length = [], [], [], []
+        name, index, offset, length, split = [], [], [], [], []
         i = 0
         while i < batchsize:
             # first sample a data split at random
             split_idx = random.randint(0, len(dataset.data_shape) - 1)
+            
             # now sample a data point from this split
             # random.randint includes the endpoints
             idx = random.randint(0, dataset.data_shape[split_idx][0] - 1)
-            sample = dataset[(split_idx,idx)]
+            sample = dataset[(split_idx, idx)]
 
             # Sample did not have paired target
             if sample is None:
@@ -131,15 +132,18 @@ def batches(n, dataset):
             index.append(metadata['index'])
             offset.append(metadata['offset'])
             length.append(metadata['length'])
+            split.append(split_idx)
             input_tensor[i, :, :] = perturb(
                 torch.from_numpy(sample.input),
-                perturb_type=dataset.perturb_type
+                perturb_type=dataset.perturb_type,
             )
             output[i, :] = torch.LongTensor(sample.target)
 
             i += 1
+        
         metadata = {
             'name': name,
+            'split': split,
             'index': index,
             'offset': offset,
             'length': length,
@@ -151,7 +155,9 @@ def batches(n, dataset):
         
         # Memmap will consume more and more RAM if permitted. This periodically
         # forces the buffer to clear by deleting and recreating the memmap.
-        dataset.free_ram(split_idx)
+        for s in split:
+            dataset.free_ram(s)
+
 
 def multiset_batches(n, sets):
     '''
@@ -183,15 +189,16 @@ def validation_batches(dataset):
     for s in sorted(dataset.heldout):
         for u in dataset.spk2utt[s]:
             if u in dataset.targets:
-                start = dataset.offsets_dict[u]
+                split_idx, start = dataset.offsets_dict[u]
                 end = start + dataset.utt_lengths[u] 
                 i = 0
                 inputs, output = [], []
-                length, offset, index, name = [], [], [], []
+                length, offset, index, name, split = [], [], [], [], []
                 for idx in range(start, end, dataset.chunk_width):
-                    sample = dataset[idx]
+                    sample = dataset[(split_idx, idx)]
                     metadata = sample.metadata
                     name.append(metadata['name'])
+                    split.append(metadata['split'])
                     index.append(metadata['index'])
                     offset.append(metadata['offset'])
                     length.append(metadata['length'])
@@ -201,7 +208,7 @@ def validation_batches(dataset):
                     # Yield the minibatch when this one is full 
                     if i == batchsize:
                         metadata = {
-                            'name': name, 'index': index,
+                            'name': name, 'split': split, 'index': index,
                             'offset': offset, 'length': length,
                             'left_context': dataset.left_context,
                             'right_context': dataset.right_context,
@@ -211,11 +218,11 @@ def validation_batches(dataset):
                         yield Minibatch(input_tensor, output_tensor, metadata) 
                         i = 0
                         inputs, output = [], []
-                        length, offset, index, name = [], [], [], []
+                        length, offset, index, name, split = [], [], [], [], []
                 # Yield the minibatch when the utterance is done
                 if i > 0:
                     metadata = {
-                        'name': name, 'index': index,
+                        'name': name, 'index': index, 'split': split,
                         'offset': offset, 'length': length,
                         'left_context': dataset.left_context,
                         'right_context': dataset.right_context,
@@ -233,15 +240,16 @@ def evaluation_batches(dataset):
     batchsize = dataset.batchsize
     # Get utterances for each speaker and batch in order
     for u in dataset.utt_subset:
-        start = dataset.offsets_dict[u]
+        split_idx, start = dataset.offsets_dict[u]
         end = start + dataset.utt_lengths[u] 
         i = 0
         inputs, output = [], []
-        length, offset, index, name = [], [], [], []
+        length, offset, index, name, split = [], [], [], [], []
         for idx in range(start, end, dataset.chunk_width):
-            sample = dataset[idx]
+            sample = dataset[(split_idx, idx)]
             metadata = sample.metadata
             name.append(metadata['name'])
+            split.append(metadata['split'])
             index.append(metadata['index'])
             offset.append(metadata['offset'])
             length.append(metadata['length'])
@@ -251,7 +259,7 @@ def evaluation_batches(dataset):
             # Yield the minibatch when this one is full 
             if i == batchsize:
                 metadata = {
-                    'name': name, 'index': index,
+                    'name': name, 'index': index, 'split': split,
                     'offset': offset, 'length': length,
                     'left_context': dataset.left_context,
                     'right_context': dataset.right_context,
@@ -261,11 +269,11 @@ def evaluation_batches(dataset):
                 yield Minibatch(input_tensor, output_tensor, metadata) 
                 i = 0
                 inputs, output = [], []
-                length, offset, index, name = [], [], [], []
+                length, offset, index, name = [], [], [], [], []
         # Yield the minibatch when the utterance is done
         if i > 0:
             metadata = {
-                'name': name, 'index': index,
+                'name': name, 'index': index, 'split': split,
                 'offset': offset, 'length': length,
                 'left_context': dataset.left_context,
                 'right_context': dataset.right_context,

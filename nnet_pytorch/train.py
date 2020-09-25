@@ -61,7 +61,6 @@ def main():
         datasets.append(
             HybridAsrDataset(
                 ds['data'], ds['tgt'], args.num_targets,
-                skip_datadump=args.skip_datadump,
                 left_context=ds['left_context'],
                 right_context=ds['right_context'],
                 chunk_width=ds['chunk_width'],
@@ -80,6 +79,8 @@ def main():
     # Define model
     print("Defining model ...")
     model = models.MODELS[args.model].build_model(conf)
+    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print("Traning model with ", total_params, " parameters.")
     objective = objectives.OBJECTIVES[args.objective].build_objective(conf)
 
     # Send model and objective function to GPU (or keep on CPU)

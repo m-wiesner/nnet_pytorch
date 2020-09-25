@@ -51,7 +51,6 @@ def main():
     
     dataset = HybridAsrDataset(
         args.datadir, targets, conf['num_targets'],
-        skip_datadump=args.skip_datadump,
         left_context=dataset_args['left_context'],
         right_context=dataset_args['right_context'],
         chunk_width=dataset_args['chunk_width'],

@@ -14,7 +14,6 @@ from itertools import groupby
 class HybridAsrDataset(object):
     @staticmethod
     def add_args(parser):
-        parser.add_argument('--skip-datadump', action='store_true')
         parser.add_argument('--perturb-type', type=str, default='none')
         parser.add_argument('--validation-spks', type=int, default=5)
         parser.add_argument('--utt-subset', default=None)
@@ -24,7 +23,7 @@ class HybridAsrDataset(object):
         dtype=np.float32, memmap_affix='.dat',
         left_context=10, right_context=3, chunk_width=1,
         batchsize=128, num_split=1, mean=True, var='norm',
-        skip_datadump=True, validation=1, utt_subset=None, subsample=1,
+        validation=1, utt_subset=None, subsample=1,
         perturb_type='none',
     ):
         # Load CMVN
@@ -51,29 +50,35 @@ class HybridAsrDataset(object):
         f_memmap = feats_scp + memmap_affix
         metadata_path = os.path.sep.join((datadir,'mapped','metadata'))
         self.data_path = os.path.sep.join((datadir,'mapped','feats.dat'))
-        if skip_datadump:
-            print('Skipping data dump. Remove flag --skip-datadump to redo this step')
-            utt_lengths = []
-            offsets = []
-            data_shape = []
-            for n in range(1,1+num_split):
-                with open(metadata_path + '.' + str(n) + '.pkl', 'rb') as f:
-                    utt_lengths_n, offsets_n, data_shape_n = pickle.load(f)
-                    utt_lengths.append(utt_lengths_n)
-                    offsets.append(offsets_n)
-                    data_shape.append(data_shape_n)
-        else:
-            utt_lengths, offsets, data_shape = memmap_feats(feats_scp, f_memmap)
-            with open(feats_scp + '.pkl', 'bw') as f:
-                pickle.dump([utt_lengths, offsets, data_shape], f) 
-        
-        self.data = [np.memmap(
-            "{}.{}".format(self.data_path,n), dtype=dtype, shape=data_shape[n-1], mode='r'
-        ) for n in range(1,1+num_split)]
+        utt_lengths = []
+        offsets = []
+        data_shape = []
+        for n in range(1, 1 + num_split):
+            with open(metadata_path + '.' + str(n) + '.pkl', 'rb') as f:
+                utt_lengths_n, offsets_n, data_shape_n = pickle.load(f)
+                utt_lengths.append(utt_lengths_n)
+                offsets.append(offsets_n)
+                data_shape.append(data_shape_n)
+       
+        # Creates 1 file pointer per memmap split   
+        self.data = [
+            np.memmap(
+                "{}.{}".format(self.data_path, n),
+                dtype=dtype,
+                shape=data_shape[n-1],
+                mode='r',
+            ) for n in range(1, 1 + num_split)
+        ]
 
         # Get some metadata
         self.utt_lengths = utt_lengths # list of dicts with (utt, len) (key, val) pairs
-        self.offsets_dict = offsets # list of dicts with (utt, offset) (key, val) pairs
+        
+        # dict with (utt, offset) (key, val) pairs. This is needed for inference
+        self.offsets_dict = {
+            u: (split_idx, v) for split_idx, offsets_n in enumerate(offsets)
+                for u, v in offsets_n.items()
+        }
+        
         self.utt_offsets = [sorted(offset_n.items(), key=lambda x: x[1]) for offset_n in offsets] # sorted list of utterances by offset
         self.offsets = [[u[1] for u in offset_n] for offset_n in self.utt_offsets] # list of sorted list of offsets
         self.data_shape = data_shape # list of shape of the whole data (per split)
@@ -97,11 +102,20 @@ class HybridAsrDataset(object):
             self.utt_subset = [i for i in self.targets]
 
     def free_ram(self, split_idx):
+        '''
+            This function flushes the memmap memory buffer for a particular 
+        '''
         dtype = self.data[0].dtype
         del self.data[split_idx]
-        self.data.insert(split_idx, np.memmap(
-            "{}.{}".format(self.data_path,split_idx+1), dtype=dtype, shape=self.data_shape[split_idx], mode='r',
-        )) # file indexes are 1-based while split_idx is 0-based
+        # file indexes are 1-based while split_idx is 0-based
+        self.data.insert(
+            split_idx, np.memmap(
+                "{}.{}".format(self.data_path, split_idx + 1),
+                dtype=dtype,
+                shape=self.data_shape[split_idx],
+                mode='r',
+            )
+        )
         print (len(self.data))
 
     def __getitem__(self, index):
@@ -137,12 +151,8 @@ class HybridAsrDataset(object):
         )
         
         target = self.targets[utt_name][target_start: target_end]
+        
         # Get the lower and upper boundaries for the window
-        # (left_context + index + right_context) 
-        #lower_boundary = max(0, index - self.left_context)
-        #upper_boundary = min(
-        #    self.data_shape[0], index + self.right_context + self.chunk_width
-        #)
         lower_boundary = max(offset, idx - self.left_context)
         upper_boundary = min(
             offset + utt_length, idx + self.right_context + self.chunk_width
@@ -167,7 +177,8 @@ class HybridAsrDataset(object):
         # Collect metadata
         metadata = {
             'name': utt_name,
-            'index': idx,
+            'split': index[0],
+            'index': index[1],
             'offset': offset,
             'length': utt_length,
         }
