@@ -125,4 +125,13 @@ class SGLDSampler(object):
             self.buffer[x[1]] = x_.cpu()
             self.buffer_numsteps[x[1]] = numsteps.cpu()
         return x_, k
- 
+
+    def state_dict(self):
+        return {
+            'buffer': self.buffer,
+            'buffer_numsteps': self.buffer_numsteps,
+        }
+    
+    def load_state_dict(self, state_dict):
+        self.buffer = state_dict['buffer'].cpu()
+        self.buffer_numsteps = state_dict['buffer_numsteps'].cpu() 
