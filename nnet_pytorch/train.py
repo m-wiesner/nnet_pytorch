@@ -115,7 +115,6 @@ def main():
         optimizer.load_state_dict(mdl['optimizer'])
         lr_sched.load_state_dict(mdl['lr_sched'])
         conf['epoch'] = mdl['epoch']
-        load_buffer(objective, mdl) 
     else:
         # Get priors if we are not resuming
         if args.objective == 'CrossEntropy':
@@ -173,21 +172,6 @@ def train(args, conf, datasets, model, objective, optimizer, lr_sched, device):
             'epoch': e + 1,
         }
         
-        # Make sure to also save the buffer in the SGLD sampler if training
-        # requires SGLD
-        if hasattr(objective, 'sgld_sampler'): 
-            state_dict = {
-                **state_dict,
-                'buffer': objective.sgld_sampler.buffer,
-                'buffer_numsteps': objective.sgld_sampler.buffer_numsteps,
-            }
-        elif hasattr(objective, 'seq_ebm'):
-            state_dict = {
-                **state_dict,
-                'buffer': objective.seq_ebm.sgld_sampler.buffer,
-                'buffer_numsteps': objective.seq_ebm.sgld_sampler.buffer_numsteps,
-            }
-
         torch.save(
             state_dict,
             args.expdir + '/{}.{}.mdl'.format(e + 1, args.job),
@@ -228,18 +212,6 @@ def update_priors(args, dataset, model, device='cpu'):
     priors /= priors.sum()
     return np.log(priors).tolist()
 
-
-def load_buffer(objective, mdl):
-    '''
-        Load SGLD buffer when resuming training
-    '''
-    if 'buffer' in mdl.keys():
-        if hasattr(objective, 'sgld_sampler'):
-            objective.sgld_sampler.buffer = mdl['buffer'].cpu()
-            objective.sgld_sampler.buffer_numsteps = mdl['buffer_numsteps'].cpu() 
-        elif hasattr(objective, 'seq_ebm'):
-            objective.seq_ebm.sgld_sampler.buffer = mdl['buffer'].cpu()
-            objective.seq_ebm.sgld_sampler.buffer_numsteps = mdl['buffer_numsteps'].cpu()
 
 def parse_arguments():
     parser = argparse.ArgumentParser()

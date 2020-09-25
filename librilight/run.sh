@@ -15,7 +15,10 @@ lm_url=www.openslr.org/resources/11
 stage=0
 subsampling=4
 chaindir=exp/chain
-modelnum=1
+model_dirname=1
+checkpoint=180_220.mdl
+resume=
+restsets="dev_clean dev_other test_clean test_other"
 decode_nj=80
 . ./utils/parse_options.sh
 
@@ -104,8 +107,13 @@ if [ $stage -le 7 ]; then
 
   local/format_lms.sh --src-dir data/lang data/local/lm
 
+  # Large 3-gram LM rescoring
+  #utils/build_const_arpa_lm.sh \
+  #  data/local/lm/lm_tglarge.arpa.gz data/lang data/lang_test_tglarge
+
+  # 4-gram LM rescoring
   utils/build_const_arpa_lm.sh \
-    data/local/lm/lm_tglarge.arpa.gz data/lang data/lang_test_tglarge
+    data/local/lm/lm_fglarge.arpa.gz data/lang data/lang_test_fglarge
 
   steps/align_fmllr.sh --nj 5 --cmd "$train_cmd" \
     data/train_10h data/lang exp/tri3b exp/tri3b_ali_train_10h
@@ -118,6 +126,7 @@ if [ $stage -le 9 ]; then
   done 
 
   ./utils/combine_data.sh data/train_960 data/train_{clean_100,clean_360,other_500}
+  # TODO: Remove 10h data from unlabeled set
   ./steps/make_fbank.sh --cmd "$train_cmd" --nj 32 data/train_960 exp/make_fbank/train_960 fbank
   ./utils/fix_data_dir.sh data/train_960
   ./steps/compute_cmvn_stats.sh data/train_960
@@ -165,8 +174,13 @@ fi
 
 # Supervised ChainWideResnet (Only works with subsampling == 4)
 if [ $stage -eq 13 ]; then
+  resume_opts=
+  if [ ! -z $resume ]; then
+    resume_opts="--resume ${resume}.mdl"
+  fi 
+  
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
-  ./train_nnet_pytorch.sh \
+  ./train_nnet_pytorch.sh ${resume_opts} \
     --gpu true \
     --skip-datadump true \
     --objective LFMMI \
@@ -193,13 +207,58 @@ if [ $stage -eq 13 ]; then
     'left_context': 10, 'right_context': 5
         }\
      ]" \
-    `dirname ${chaindir}`/model${modelnum}
+    `dirname ${chaindir}`/${model_dirname}
+fi
+
+
+# Supervised ChainWideResnet (Only works with subsampling == 4)
+if [ $stage -eq 20 ]; then
+  resume_opts=
+  if [ ! -z $resume ]; then
+    resume_opts="--resume ${resume}.mdl"
+  fi 
+  
+  num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
+  ./local/train_async_parallel2.sh ${resume_opts} \
+    --gpu true \
+    --skip-datadump true \
+    --objective LFMMI \
+    --denom-graph ${chaindir}/den.fst \
+    --num-pdfs ${num_pdfs} \
+    --subsample ${subsampling} \
+    --model ChainWideResnet \
+    --depth 28 \
+    --width 10 \
+    --warmup 1000 \
+    --decay 1e-05 \
+    --xent 0.2 \
+    --l2 0.0001 \
+    --weight-decay 1e-05 \
+    --lr 0.0001 \
+    --batches-per-epoch 250 \
+    --num-epochs 160 \
+    --validation-spks 0 \
+    --nj 2
+    "[ \
+        {\
+    'data': 'data/train_10h_fbank', \
+    'tgt': 'data/train_10h_fbank/pdfid.${subsampling}.tgt', \
+    'batchsize': 32, 'chunk_width': 140, \
+    'left_context': 10, 'right_context': 5
+        }\
+     ]" \
+    `dirname ${chaindir}`/${model_dirname}
 fi
 
 # Semi-Supervised ChainWideResnet (Only works with subsampling == 4)
 if [ $stage -eq 14 ]; then
+  resume_opts=
+  if [ ! -z $resume ]; then
+    resume_opts="--resume ${resume}.mdl"
+  fi 
+
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
-  ./train_nnet_pytorch.sh \
+  ./train_nnet_pytorch.sh ${resume_opts} \
     --gpu true \
     --skip-datadump true \
     --objective SemisupLFMMI \
@@ -247,36 +306,41 @@ if [ $stage -eq 14 ]; then
      'left_context': 10, 'right_context': 5 \
        },\
      ]" \
-     `dirname ${chaindir}`/model${modelnum}
+     `dirname ${chaindir}`/${model_dirname}
 fi
 
 # DECODING
 if [ $stage -eq 15 ]; then
-  ./utils/mkgraph.sh --self-loop-scale 1.0 \
-    data/lang_test_tgsmall ${tree} ${tree}/graph_tgsmall
-  ./local/prepare_test.sh --subsampling ${subsampling} --data ${unlabeled_data} 
-  
-  average_models.py `dirname ${chaindir}`/model${modelnum} 80 60 160  
-  for ds in dev_clean dev_other test_clean test_other; do 
+  if [ ! -f ${tree}/graph_tgsmall/HCLG.fst ]; then
+    ./utils/mkgraph.sh --self-loop-scale 1.0 \
+      data/lang_test_tgsmall ${tree} ${tree}/graph_tgsmall
+  fi
+
+  if [ ! -f data/dev_clean_fbank/feats.scp.dat ]; then
+    ./local/prepare_test.sh --subsampling ${subsampling} --data ${unlabeled_data} 
+  fi
+
+  average_models.py `dirname ${chaindir}`/${model_dirname} 80 60 160  
+  for ds in $testsets; do 
     ./decode_nnet_pytorch.sh --min-lmwt 6 \
                            --max-lmwt 18 \
                            --skip-datadump true \
-                           --modelname 60_160.mdl \
+                           --modelname ${checkpoint} \
                            --acoustic-scale 1.0 \
                            --post-decode-acwt 10.0 \
                            --nj ${decode_nj} \
-                           data/${ds}_fbank exp/model${modelnum} \
-                           ${tree}/graph_tgsmall exp/model${modelnum}/decode_60_160.mdl_graph_${ds}
-    echo ${decode_nj} > exp/model${modelnum}/decode_60_160.mdl_graph_${ds}/num_jobs
+                           data/${ds}_fbank exp/${model_dirname} \
+                           ${tree}/graph_tgsmall exp/${model_dirname}/decode_${checkpoint}_graph_${ds}
+    echo ${decode_nj} > exp/${model_dirname}/decode_${checkpoint}_graph_${ds}/num_jobs
     ./steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
-      data/lang_test_tg{small,large} \
-      data/${ds}_fbank exp/model${modelnum}/decode_60_160.mdl_graph_${ds}{,_tglarge_rescored} 
+      data/lang_test_{tgsmall,fglarge} \
+      data/${ds}_fbank exp/${model_dirname}/decode_${checkpoint}_graph_${ds}{,_fglarge_rescored} 
   done
 fi
 
 # Generation
 if [ $stage -eq 16 ]; then
-  modeldir=`dirname ${chaindir}`/model${modelnum}
+  modeldir=`dirname ${chaindir}`/${model_dirname}
   gen_dir=${modeldir}/generate_cond_160.mdl
   mkdir -p ${gen_dir}
   generate_cmd="./utils/queue.pl --mem 2G --gpu 1 --config conf/gpu.conf ${gen_dir}/log"

@@ -22,6 +22,7 @@ function filesize() {
     "3-gram.arpa.gz") echo "759636181";;
     "3-gram.pruned.1e-7.arpa.gz") echo "34094057";;
     "3-gram.pruned.3e-7.arpa.gz") echo "13654242";;
+    "4-gram.arpa.gz") echo "1355172078";;
     "librispeech-lexicon.txt") echo "5627653";;
     "librispeech-vocab.txt") echo "1737588";;
     *) echo "";;
@@ -60,7 +61,7 @@ function check_and_download () {
 
 mkdir -p $dst_dir $local_dir
 
-for f in 3-gram.arpa.gz 3-gram.pruned.1e-7.arpa.gz 3-gram.pruned.3e-7.arpa.gz  \
+for f in 3-gram.arpa.gz 3-gram.pruned.1e-7.arpa.gz 3-gram.pruned.3e-7.arpa.gz 4-gram.arpa.gz \
          librispeech-vocab.txt librispeech-lexicon.txt; do
   check_and_download $f || exit 1
 done
@@ -69,6 +70,7 @@ dst_dir=$(readlink -f $dst_dir)
 ln -sf $dst_dir/3-gram.pruned.1e-7.arpa.gz $local_dir/lm_tgmed.arpa.gz
 ln -sf $dst_dir/3-gram.pruned.3e-7.arpa.gz $local_dir/lm_tgsmall.arpa.gz
 ln -sf $dst_dir/3-gram.arpa.gz $local_dir/lm_tglarge.arpa.gz
+ln -sf $dst_dir/4-gram.arpa.gz $local_dir/lm_fglarge.arpa.gz
 ln -sf $dst_dir/librispeech-lexicon.txt $local_dir/librispeech-lexicon.txt
 ln -sf $dst_dir/librispeech-vocab.txt $local_dir/librispeech-vocab.txt
 exit 0

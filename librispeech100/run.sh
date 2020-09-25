@@ -1,11 +1,10 @@
 #!/bin/bash
 
-# This is based almost entirely on the Kaldi minilibrispeech recipe
+# This is based almost entirely on the Kaldi librispeech recipe
 # Change this location to somewhere where you want to put the data.
 # This recipe ASSUMES YOU HAVE DOWNLOADED the Librispeech data
 unlabeled_data=/export/corpora5 #/PATH/TO/LIBRISPEECH/data
 data=./corpus
-librilight=librilight
 data_url=www.openslr.org/resources/31
 lm_url=www.openslr.org/resources/11
 
@@ -15,8 +14,8 @@ lm_url=www.openslr.org/resources/11
 stage=0
 subsampling=4
 chaindir=exp/chain
-modelnum=1
-modelname=100_160.mdl
+model_dirname=model1
+checkpoint=180_220.mdl
 resume=
 testsets="dev_clean dev_other test_clean test_other"
 decode_nj=80
@@ -41,6 +40,7 @@ if [ $stage -le 1 ]; then
     "<UNK>" data/local/lang_tmp_nosp data/lang_nosp
 
   local/format_lms.sh --src-dir data/lang_nosp data/local/lm
+  
   # Create ConstArpaLm format language model for full 3-gram and 4-gram LMs
   utils/build_const_arpa_lm.sh data/local/lm/lm_tglarge.arpa.gz \
     data/lang_nosp data/lang_nosp_test_tglarge
@@ -118,8 +118,13 @@ if [ $stage -le 8 ]; then
 
   local/format_lms.sh --src-dir data/lang data/local/lm
 
+  # Larger 3-gram LM rescoring
+  #utils/build_const_arpa_lm.sh \
+  #  data/local/lm/lm_tglarge.arpa.gz data/lang data/lang_test_tglarge
+
+  # 4-gram LM rescoring
   utils/build_const_arpa_lm.sh \
-    data/local/lm/lm_tglarge.arpa.gz data/lang data/lang_test_tglarge
+    data/local/lm/lm_fglarge.arpa.gz data/lang data/lang_test_fglarge
 
   steps/align_fmllr.sh --nj 5 --cmd "$train_cmd" \
     data/train_100h data/lang exp/tri3 exp/tri3_ali_train_100h
@@ -204,7 +209,6 @@ if [ $stage -eq 13 ]; then
     --batches-per-epoch 250 \
     --num-epochs 200 \
     --validation-spks 0 \
-    --resume 360.mdl \
     "[ \
         {\
     'data': 'data/train_100h_fbank', \
@@ -213,14 +217,14 @@ if [ $stage -eq 13 ]; then
     'left_context': 10, 'right_context': 5
         }\
      ]" \
-    `dirname ${chaindir}`/model${modelnum}
+    `dirname ${chaindir}`/${model_dirname}
 fi
 
 # Multigpu training of Chain-WideResNet without optimizer state averaging
 if [ $stage -eq 20 ]; then
   resume_opts=
   if [ ! -z $resume ]; then
-    resume_opts="--resume ${resume}.mdl"
+    resume_opts="--resume ${resume}"
   fi 
   
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
@@ -252,14 +256,14 @@ if [ $stage -eq 20 ]; then
     'left_context': 10, 'right_context': 5
         }\
      ]" \
-    `dirname ${chaindir}`/model${modelnum}
+    `dirname ${chaindir}`/${model_dirname}
 fi
 
 # Multigpu training of Chain-WideResNet with optimizer state averaging
 if [ $stage -eq 21 ]; then
   resume_opts=
   if [ ! -z $resume ]; then
-    resume_opts="--resume ${resume}.mdl"
+    resume_opts="--resume ${resume}"
   fi 
 
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
@@ -280,7 +284,7 @@ if [ $stage -eq 21 ]; then
     --weight-decay 1e-07 \
     --lr 0.0002 \
     --batches-per-epoch 250 \
-    --num-epochs 200 \
+    --num-epochs 300 \
     --validation-spks 0 \
     --nj 2 \
     "[ \
@@ -291,7 +295,7 @@ if [ $stage -eq 21 ]; then
     'left_context': 10, 'right_context': 5
         }\
      ]" \
-    `dirname ${chaindir}`/model${modelnum}
+    `dirname ${chaindir}`/${model_dirname}
 fi
 
 
@@ -299,7 +303,7 @@ fi
 if [ $stage -eq 22 ]; then
   resume_opts=
   if [ ! -z $resume ]; then
-    resume_opts="--resume ${resume}.mdl"
+    resume_opts="--resume ${resume}"
   fi 
   
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
@@ -333,7 +337,7 @@ if [ $stage -eq 22 ]; then
     'left_context': 10, 'right_context': 5
         }\
      ]" \
-    `dirname ${chaindir}`/model${modelnum}
+    `dirname ${chaindir}`/${model_dirname}
 fi
 
 
@@ -342,10 +346,10 @@ fi
 if [ $stage -eq 14 ]; then
   resume_opts=
   if [ ! -z $resume ]; then
-    resume_opts="--resume ${resume}.mdl"
+    resume_opts="--resume ${resume}"
   fi 
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
-  ./train_nnet_pytorch.sh ${resume_opts} \
+  ./local/train_async_parallel2.sh ${resume_opts} \
     --gpu true \
     --skip-datadump true \
     --objective SemisupLFMMI \
@@ -360,25 +364,27 @@ if [ $stage -eq 14 ]; then
     --xent 0.1 \
     --l2 0.0001 \
     --weight-decay 1e-07 \
-    --lr 0.0003 \
+    --lr 0.0002 \
     --batches-per-epoch 250 \
-    --num-epochs 250 \
+    --num-epochs 300 \
     --validation-spks 0 \
     --sgld-thresh 0 \
     --sgld-reinit-p 0.05 \
     --sgld-buffer 10000 \
     --sgld-stepsize 1.0 \
-    --sgld-steps 2 \
-    --sgld-noise 0.0001 \
+    --sgld-steps 4 \
+    --sgld-noise 0.001 \
     --sgld-decay 0.0 \
     --sgld-warmup 0 \
     --sgld-optim accsgld \
-    --sgld-replay-correction 1.0 \
+    --sgld-replay-correction 0.5 \
     --l2-energy 0.0001 \
-    --sgld-weight-decay 0.0 \
+    --sgld-weight-decay 1e-10 \
+    --sgld-decay
     --delay-updates 2 \
     --lfmmi-weight 1.0 \
     --ebm-weight 1.0 \
+    --nj 2 \
     "[ \
         {\
     'data': 'data/train_100h_fbank', \
@@ -389,11 +395,11 @@ if [ $stage -eq 14 ]; then
         {\
      'data': 'data/train_860', \
      'tgt': 'data/train_860/pdfid.${subsampling}.tgt', \
-     'batchsize': 32, 'chunk_width': 40, \
+     'batchsize': 32, 'chunk_width': 20, \
      'left_context': 5, 'right_context': 5 \
        },\
      ]" \
-     `dirname ${chaindir}`/model${modelnum}
+     `dirname ${chaindir}`/${model_dirname}
 fi
 
 # DECODING
@@ -410,27 +416,27 @@ if [ $stage -eq 15 ]; then
   fi
 
   # Average models (This gives better performance)
-  # average_models.py `dirname ${chaindir}`/model${modelnum} 80 200 250 
+  average_models.py `dirname ${chaindir}`/${model_dirname} 80 180 220 
   for ds in $testsets; do 
     ./decode_nnet_pytorch.sh --min-lmwt 6 \
                            --max-lmwt 18 \
                            --skip-datadump true \
-                           --modelname ${modelname} \
+                           --modelname ${checkpoint} \
                            --acoustic-scale 1.0 \
                            --post-decode-acwt 10.0 \
                            --nj ${decode_nj} \
-                           data/${ds}_fbank exp/model${modelnum} \
-                           ${tree}/graph_tgsmall exp/model${modelnum}/decode_${modelname}_graph_${ds}
-    echo ${decode_nj} > exp/model${modelnum}/decode_${modelname}_graph_${ds}/num_jobs
+                           data/${ds}_fbank exp/${model_dirname} \
+                           ${tree}/graph_tgsmall exp/${model_dirname}/decode_${checkpoint}_graph_${ds}
+    echo ${decode_nj} > exp/${model_dirname}/decode_${checkpoint}_graph_${ds}/num_jobs
     ./steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
-      data/lang_test_tg{small,large} \
-      data/${ds}_fbank exp/model${modelnum}/decode_${modelname}_graph_${ds}{,_tglarge_rescored} 
+      data/lang_test_{tgsmall,tglarge} \
+      data/${ds}_fbank exp/${model_dirname}/decode_${checkpoint}_graph_${ds}{,_tglarge_rescored} 
   done
 fi
 
 # Generation
 if [ $stage -eq 16 ]; then
-  modeldir=`dirname ${chaindir}`/model${modelnum}
+  modeldir=`dirname ${chaindir}`/${model_dirname}
   gen_dir=${modeldir}/generate_cond_160.mdl
   mkdir -p ${gen_dir}
   generate_cmd="./utils/queue.pl --mem 2G --gpu 1 --config conf/gpu.conf ${gen_dir}/log"

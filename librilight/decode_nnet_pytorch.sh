@@ -4,7 +4,7 @@
 
 batchsize=512
 skip_datadump=false
-modelname=final.mdl
+checkpoint=final.mdl
 prior_scale=1.0
 prior_floor=-20.0
 prior_name="priors"
@@ -26,7 +26,7 @@ stage=0
 if [ $# -ne 4 ]; then
   echo "Usage: ./decode_nnet_pytorch.sh <data> <pytorch_model> <graphdir> <odir>"
   echo " --batchsize ${batchsize} --skip-datadump ${skip_datadump}"
-  echo " --modelname ${modelname} --prior-scale ${prior_scale} --prior-floor ${prior_floor} --prior-name ${prior_name}"
+  echo " --checkpoint ${checkpoint} --prior-scale ${prior_scale} --prior-floor ${prior_floor} --prior-name ${prior_name}"
   echo " --min-active ${min_active} --max-active ${max_active}"
   echo " --max-mem ${max_mem} --lattice-beam ${lattice_beam}"
   echo " --beam ${beam} --acoustic-scale ${acoustic_scale} --post-decode-acwt ${post_decode_acwt}"
@@ -69,7 +69,7 @@ ${decode_cmd} JOB=1:${nj} ${odir}/log/decode.JOB.log \
       --datadir ${data} \
       --modeldir ${pytorch_model} \
       --dumpdir ${odir} \
-      --modelname ${modelname} \
+      --checkpoint ${checkpoint} \
       --prior-scale ${prior_scale} \
       --prior-floor ${prior_floor} \
       --prior-name ${prior_name} \

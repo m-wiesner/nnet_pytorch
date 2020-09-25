@@ -183,5 +183,19 @@ class SequenceEBMLoss(nn.Module):
         
         return loss, None 
 
+    def state_dict(self):
+        return {
+            'warmup': self.warmup,
+            'decay': self.decay,
+            'num_warmup_updates': self.num_warmup_updates,
+            'num_decay_updates': self.num_decay_updates,
+            'sampler': self.sgld_sampler.state_dict(),
+        }
 
+    def load_state_dict(self, state_dict):
+        self.sgld_sampler.load_state_dict(state_dict['sampler'])
+        self.warmup = state_dict['warmup']
+        self.decay = state_dict['decay']
+        self.num_warmup_updates = state_dict['warmup_updates']
+        self.num_decay_updates = state_dict['decay_updates']
 

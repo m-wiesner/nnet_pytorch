@@ -75,4 +75,9 @@ class ChainLoss(nn.Module):
         loss = sum(losses)
         return loss, correct
 
+    def state_dict(self):
+        return {'seq_ebm': self.seq_ebm.state_dict()}
 
+    def load_state_dict(self, state_dict):
+        self.seq_ebm.load_state_dict(state_dict)
+        

@@ -72,7 +72,7 @@ def main():
   
     # Load the model from experiment checkpoint 
     mdl = torch.load(
-        os.path.sep.join([args.modeldir, args.modelname]),
+        os.path.sep.join([args.modeldir, args.checkpoint]),
         map_location=device
     )
     model.load_state_dict(mdl['model'])
@@ -150,7 +150,7 @@ def parse_arguments():
     parser.add_argument('--datadir')
     parser.add_argument('--modeldir')
     parser.add_argument('--dumpdir')
-    parser.add_argument('--modelname', default='final.mdl')
+    parser.add_argument('--checkpoint', default='final.mdl')
     parser.add_argument('--prior-scale', type=float, default=1.0)
     parser.add_argument('--prior-floor', type=float, default=-20)
     parser.add_argument('--prior-name', default='priors')
