@@ -10,7 +10,6 @@ model_dirname=wrn_semisup
 checkpoint=20.mdl
 target="2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697"
 idim=80
-testsets="dev_clean dev_other test_clean test_other"
 
 set -euo pipefail
 
