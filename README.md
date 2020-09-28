@@ -56,7 +56,12 @@ TODO
   Currently, a when creating minibatches we expect targets to exist. For unlabeled data
   or data we want to decode, we supply dummy targets consisting of -1 for all outputs.
   This is obviously a little wasteful, but on academic datasets, which are fairly small,
-  this doesn't cause any problems. 
+  this doesn't cause any problems.
+  
+**Create base class for models, objectives and optimizers with add_state_dict()**
+  We need to define how to average state dicts from different models and
+  objectives. For now this is handled in the script combine_models.py 
+
 
 Example Recipes
 -------------------------------------------------------------------------------
