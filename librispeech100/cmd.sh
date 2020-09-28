@@ -11,5 +11,5 @@
 # or search for the string 'default_config' in utils/queue.pl or utils/slurm.pl.
 
 export train_cmd="queue.pl --mem 2G -l hostname='!b02*&!c24*&!c23*&!c27*&!c26*&!c25*&!a*'"
-export decode_cmd="queue.pl --mem 4G -l hostname='!b02*&!c24*&!c23*&!c27*&!c26*&!c25*&!a*'"
+export decode_cmd="queue.pl --mem 4G -l hostname='!b02*&!c06*&!c23*&!c24*&!c25*&!c26*&!c27*&!a*'"
 export mkgraph_cmd="queue.pl --mem 8G"
