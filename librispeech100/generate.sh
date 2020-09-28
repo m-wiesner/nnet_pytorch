@@ -11,6 +11,8 @@ checkpoint=20.mdl
 target="2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697"
 idim=80
 
+. ./utils/parse_options.sh
+
 set -euo pipefail
 
 tree=${chaindir}/tree
