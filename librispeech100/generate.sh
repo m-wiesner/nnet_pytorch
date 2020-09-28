@@ -14,7 +14,6 @@ idim=80
 set -euo pipefail
 
 tree=${chaindir}/tree
-post_decode_acwt=`echo ${acwt} | awk '{print 10*$1}'`
 
 # Generation
 modeldir=`dirname ${chaindir}`/${model_dirname}
