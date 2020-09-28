@@ -1,0 +1,12 @@
+This recipe trains a hybrid ASR model on the 960h
+Librispeech data. The training pipeline is almost similar
+to the Kaldi Librispeech recipe, except that we don't do
+speed pertrubation or use i-vectors here, and we use
+the nnet_pytorch for acoustic model training, instead
+of the Kaldi nnet3. Using a 6-layer BLSTM (41M params)
+and very little hyperparameter tuning, and training on
+4 GPUs for 2 days, we were able to obtain a WER of 4.46%
+on the dev-clean subset (with 4-gram LM rescoring).
+
+To run the training pipeline: `./run.sh`
+To run decoding with the trained model: `./decode.sh`
