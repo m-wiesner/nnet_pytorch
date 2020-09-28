@@ -151,7 +151,7 @@ elif [[ $model = "WideResnet" || $model = "ChainWideResnet" ]]; then
 fi
 
 ###############################################################################
-# Training (IMPORTANT PART)
+# Training 
 ###############################################################################
 echo""
 echo "--------------- `date` -------------"
@@ -163,6 +163,7 @@ start_epoch=1
 if [ ! -z $resume ]; then
   resume_opts="--resume ${resume}.mdl"
   start_epoch=$(( ${resume} + 1))
+  init_opts=""
 fi
 
 [ -f ${odir}/.error ] && rm ${odir}/.error
@@ -173,7 +174,7 @@ for e in `seq ${start_epoch} ${num_epochs}`; do
     for j in `seq 1 ${nj}`; do
       job_seed=$(($epoch_seed + $j))
       ${train_cmd} ${odir}/train.${e}.${j}.log \
-        train.py ${gpu_opts} ${resume_opts} \
+        train.py ${gpu_opts} ${resume_opts} ${init_opts} \
           ${obj_fun_opts} \
           "${mdl_opts[@]}" \
           --subsample ${subsample} \
@@ -195,7 +196,7 @@ for e in `seq ${start_epoch} ${num_epochs}`; do
           --fixed ${fixed} \
           --job ${j} \
           --seed ${job_seed} || touch ${odir}/.error &
-      sleep 5
+      sleep 10
     done
     wait
   )
@@ -207,9 +208,10 @@ for e in `seq ${start_epoch} ${num_epochs}`; do
   for j in `seq 1 $nj`; do
     combine_models="${combine_models} ${odir}/${e}.${j}.mdl"
   done
-  combine_models.py ${odir}/${e}.mdl 80 ${odir}/conf.1.json --models ${combine_models}
   
+  combine_models2.py ${odir}/${e}.mdl 80 ${odir}/conf.1.json --models ${combine_models} > ${odir}/combine.${e}.log
   resume_opts="--resume ${e}.mdl"
+  init_opts=""
 done
 
 

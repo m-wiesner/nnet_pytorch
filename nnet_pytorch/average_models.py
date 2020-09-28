@@ -46,7 +46,7 @@ def main():
         )
         for name, p in state_dict['model'].items():
             if name in new_dict:
-                new_dict[name].add_(fraction, p)
+                new_dict[name].add_(p, alpha=fraction)
     torch.save(
         {'model': new_dict},
         args.modeldir + '/{}_{}.mdl'.format(args.start, args.end)

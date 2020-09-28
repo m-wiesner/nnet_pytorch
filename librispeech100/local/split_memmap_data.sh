@@ -5,7 +5,7 @@
 
 . ./utils/parse_options.sh
 if [ $# -ne 2 ]; then
-  "Usage: ./local/split_memmap_data.sh <datadir> <n>"
+  echo "Usage: ./local/split_memmap_data.sh <datadir> <n>"
   exit 1;
 fi
 

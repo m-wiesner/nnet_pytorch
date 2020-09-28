@@ -22,6 +22,10 @@ class ChainLoss(nn.Module):
             l2_reg=conf['l2_reg'],
         )
 
+    @classmethod
+    def add_state_dict(cls, s1, s2, fraction, iteration=None):
+        return s1 
+
     def __init__(
         self, den_graph,
         xent_reg=0.2, l2_reg=0.00025, avg=True,

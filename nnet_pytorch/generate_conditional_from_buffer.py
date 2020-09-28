@@ -37,7 +37,7 @@ def main():
    
     # Load experiment configurations so that decoding uses the same parameters
     # as training
-    conf = json.load(open(args.modeldir + '/conf.json'))
+    conf = json.load(open(args.modeldir + '/conf.1.json'))
     conf['idim'] = args.idim
     if args.chunk_width:
         conf['chunk_width'] = args.chunk_width
@@ -52,8 +52,8 @@ def main():
         map_location=device
     )
     objective.load_state_dict(mdl['objective']) 
-    model.load_state_dict(mdl['model'])
-    buff = mdl['buffer']
+    model.load_state_dict(mdl['model'])  
+    buff = objective.generate()
     
     # Get the chunkwidth
     cw = args.chunk_width
@@ -177,7 +177,7 @@ def parse_arguments():
    
     # Args specific to different components
     args, leftover = parser.parse_known_args()
-    conf = json.load(open(args.modeldir + '/conf.json'))
+    conf = json.load(open(args.modeldir + '/conf.1.json'))
     models.MODELS[conf['model']].add_args(parser) 
     parser.parse_args(leftover, namespace=args) 
     return args

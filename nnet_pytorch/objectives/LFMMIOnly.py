@@ -48,6 +48,10 @@ class ChainLoss(nn.Module):
             conf['num_targets'],
         )
 
+    @classmethod
+    def add_state_dict(cls, s1, s2, fraction, iteration=None):
+        return s1 
+    
     def __init__(self, den_graph, avg=True):
         super(ChainLoss, self).__init__()
         self.den_graph = ChainGraph(
@@ -72,4 +76,4 @@ class ChainLoss(nn.Module):
         loss = -(num_objf - den_objf)
         if self.avg:
             loss /= (B * T)
-        return loss, None  
+        return loss, None

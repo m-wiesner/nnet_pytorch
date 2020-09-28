@@ -69,6 +69,19 @@ class SequenceEBMLoss(nn.Module):
             sgld_weight_decay=conf['sgld_weight_decay'],
         )
 
+    @classmethod
+    def add_state_dict(cls, s1, s2, fraction, iteration = None):
+        return {
+            'warmup': s1['warmup'],
+            'decay': s1['decay'],
+            'num_warmup_updates': int(s1['num_warmup_updates'] + fraction * s2['num_warmup_updates']),
+            'num_decay_updates': int(s1['num_decay_updates'] + fraction * s2['num_decay_updates']),
+            'sampler': SGLDSampler.add_state_dict(
+                s1['sampler'], s2['sampler'], fraction, iteration=iteration, 
+            ),
+        }
+
+
     def __init__(
         self, den_graph,
         sgld_buffer=10000,
@@ -196,6 +209,9 @@ class SequenceEBMLoss(nn.Module):
         self.sgld_sampler.load_state_dict(state_dict['sampler'])
         self.warmup = state_dict['warmup']
         self.decay = state_dict['decay']
-        self.num_warmup_updates = state_dict['warmup_updates']
-        self.num_decay_updates = state_dict['decay_updates']
+        self.num_warmup_updates = state_dict['num_warmup_updates']
+        self.num_decay_updates = state_dict['num_decay_updates']
+
+    def generate(self):
+        return self.sgld_sampler.buffer
 

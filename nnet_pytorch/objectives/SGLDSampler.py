@@ -10,6 +10,7 @@ from collections import namedtuple
 import numpy as np
 import random
 import sys
+from copy import deepcopy
 from .AcceleratedSGLD import AcceleratedSGLD
 from .SGLD import SGLD  
 
@@ -18,6 +19,25 @@ Samples = namedtuple('Samples', ['input', 'metadata'])
 
 
 class SGLDSampler(object):
+    @classmethod
+    def add_state_dict(cls, s1, s2, fraction, iteration=None):
+        s1 = deepcopy(s1)
+        buffsize = len(s2['buffer'])
+        if len(s1['buffer']) == 0:
+            s1['buffer'] = s2['buffer'].cpu()
+            s1['buffer_numsteps'] = s2['buffer_numsteps'].cpu()
+            return s1
+        num_samples = int(fraction * buffsize) 
+        idxs = torch.randint(0, buffsize, (num_samples,))
+        if iteration is not None:
+            start_idx = iteration * num_samples
+            s1['buffer'][start_idx:start_idx + num_samples] = s2['buffer'][idxs].cpu() 
+            s1['buffer_numsteps'][start_idx: start_idx + num_samples] = s2['buffer_numsteps'][idxs].cpu()
+        else:
+            s1['buffer'][idxs] = s2['buffer'][idxs].cpu()
+            s1['buffer_numsteps'][idxs] = s2['buffer_numsteps'][idxs].cpu()
+        return s1
+
     def __init__(self,
         buffer_size = 10000,
         sgld_reinit_p=0.05,
@@ -68,7 +88,7 @@ class SGLDSampler(object):
         numsteps = choose_random.view(-1) * random_numsteps + (1 - choose_random.view(-1)) * buffer_numsteps 
         return samples.to(x.device), idxs, metadata, numsteps.to(x.device)
 
-    def update(self, x, f, sample_energy=None, max_iters=150):
+    def update(self, x, f, sample_energy=None, max_iters=300):
         # Debug Diagnostic
         x_k = torch.autograd.Variable(x[0], requires_grad=True)
         optimizers = {

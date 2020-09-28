@@ -11,6 +11,10 @@ class L2(torch.nn.Module):
     def build_objective(cls, conf):
         return L2(conf)
     
+    @classmethod
+    def add_state_dict(cls, s1, s2, fraction, iteration=None):
+        return s1
+    
     def __init__(self):
         super(L2, self).__init__()
     

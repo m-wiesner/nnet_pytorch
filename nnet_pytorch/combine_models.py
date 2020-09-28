@@ -12,8 +12,11 @@ import objectives
 import torch
 import json
 from itertools import chain
+from copy import deepcopy
 import math
 from LRScheduler import LRScheduler
+from collections import defaultdict
+from torch._six import container_abcs
 
 
 def main():
@@ -52,10 +55,12 @@ def main():
     new_objective_dict = objective.state_dict()
 
     for name, param in new_mdl_dict.items():
-        param.mul_(0.0)
-
+        if len(param.size()) > 0: 
+            param.mul_(0.0)
+    
     fraction = 1.0 / (len(args.models)) 
     for i, m in enumerate(args.models):
+        print("Combining Model ", i, " ...")
         state_dict = torch.load(m, map_location=torch.device('cpu'))
         if i == 0 and 'buffer' in state_dict:
             new_buffer = torch.FloatTensor(
@@ -69,8 +74,11 @@ def main():
         # To combine models, we just average the weights
         for name, p in state_dict['model'].items():
             if name in new_mdl_dict:
-                new_mdl_dict[name].add_(p, alpha=fraction) 
-  
+                if len(p.size()) != 0: 
+                    new_mdl_dict[name].add_(p, alpha=fraction)
+                else:
+                    new_mdl_dict[name] = (p * fraction).type(new_mdl_dict[name].dtype)
+
         #--------------------- Objectives ---------------------
         # To combine objectives is harder: We average parameter weights if
         # applicable, but in the case of some models such as the EBM models
@@ -78,15 +86,17 @@ def main():
         # This combination is model specific and should therefore written as a
         # as method in the objective's class. For now we have just done it
         # here though.
-        #for name, p in state_dict['objective'].items():
-        #    if name in new_objective_dict:
-        #        new_objective_dict[name].add_(fraction, p) 
+        update_opt_state_dict(new_optim_dict, state_dict['optimizer'], fraction) 
+        new_objective_dict = objective.add_state_dict(
+            new_objective_dict, state_dict['objective'],
+            fraction, iteration=i,
+        )
         
         if 'buffer' in state_dict:
             # Random sample of (fraction * buffersize) indices to take
             buffsize = len(state_dict['buffer'])
             num_samples = math.floor(fraction * buffsize)
-            idxs = torch.randint(0, buffsize, num_samples)
+            idxs = torch.randint(0, buffsize, (num_samples,))
             if hasattr(objective, 'sgld_sampler'):
                 # Sample fraction of elements from buffer 
                 new_buffer[i*num_samples:(i+1)*num_samples] = state_dict['buffer'][idxs].cpu()
@@ -108,7 +118,7 @@ def main():
         new_state_dict = {
             **new_state_dict,
             'buffer': new_buffer,
-            'buffer_numsteps': new_buffer_num_steps, 
+            'buffer_numsteps': new_buffer_numsteps, 
         }
 
     torch.save(
@@ -119,6 +129,43 @@ def main():
     if not args.save_models:
         for m in args.models:
             os.remove(m) 
+
+
+def update_opt_state_dict(state_dict1, state_dict2, fraction):
+    '''
+        Update state_dict1, with state_dict2 where values are
+        val1 + fraction*val2
+    '''
+    groups2 = state_dict2['param_groups']
+    groups1 = state_dict1['param_groups']
+    
+    if len(groups1) != len(groups2):
+        raise ValueError("state dict as a different number of parameter groups")
+
+    param_lens = (len(g['params']) for g in groups1)
+    saved_lens = (len(g['params']) for g in groups2)
+    if any(p_len != s_len for p_len, s_len in zip(param_lens, saved_lens)):
+        raise ValueError("loaded state dict contains a parameter group that "
+            "doesn't match the size of the optimizer's group") 
+
+    id_map = {p: old_id for old_id, p in
+        zip(chain(*(g['params'] for g in groups1)),
+            chain(*(g['params'] for g in groups2)))}
+    
+    for k, v in state_dict2['state'].items():
+        if k in id_map:
+            param = id_map[k]
+            if param in state_dict1['state']:
+                for p_name, p in v.items():
+                    if isinstance(p, torch.Tensor):
+                        state_dict1['state'][param][p_name] += fraction * p
+            else:
+                state_dict1['state'][param] = {key: fraction * val for key, val in v.items()}
+        else:
+            for p_name, p in v.items():
+                if isinstance(p, torch.Tensor):
+                    state_dict1['state'][k][p_name] = fraction * p
+
 
 if __name__ == "__main__":
     main()

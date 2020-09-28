@@ -25,6 +25,14 @@ class ChainLoss(nn.Module):
             l2_reg=conf['l2_reg'],
         )
 
+    @classmethod
+    def add_state_dict(cls, s1, s2, fraction, iteration=None):
+        return {
+            'seq_ebm': SeqEBM.add_state_dict(
+                s1['seq_ebm'], s2['seq_ebm'], fraction, iteration=iteration,
+            ),  
+        }
+
     def __init__(
         self, seq_ebm, xent_reg=0.2, l2_reg=0.00025, unsup_weight=1.0,
     ):
@@ -76,8 +84,14 @@ class ChainLoss(nn.Module):
         return loss, correct
 
     def state_dict(self):
-        return {'seq_ebm': self.seq_ebm.state_dict()}
+        return {
+            'seq_ebm': self.seq_ebm.state_dict()
+        }
 
     def load_state_dict(self, state_dict):
-        self.seq_ebm.load_state_dict(state_dict)
-        
+        super().load_state_dict(state_dict)
+        self.seq_ebm.load_state_dict(state_dict['seq_ebm'])
+
+    def generate(self):
+        return self.seq_ebm.sgld_sampler.buffer
+    

@@ -125,8 +125,8 @@ def main():
     if args.init is not None:
         mdl = torch.load(args.init, map_location=device)
         for name, p in model.named_parameters():
-            if 'xent_layer' not in name and 'linear' not in name: 
-                p.data.copy_(mdl['model'][name].data)
+            #if 'xent_layer' not in name and 'linear' not in name: 
+            p.data.copy_(mdl['model'][name].data)
   
     # train
     if not args.priors_only:
