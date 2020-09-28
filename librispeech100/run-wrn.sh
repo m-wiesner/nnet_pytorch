@@ -10,7 +10,6 @@ model_dirname=wrn
 batches_per_epoch=250
 num_epochs=240
 train_nj=2
-acwt=1.0
 resume=
 num_split=20 # number of splits for memory-mapped data for training
 average=true
@@ -20,7 +19,6 @@ average=true
 set -euo pipefail
 
 tree=${chaindir}/tree
-post_decode_acwt=`echo ${acwt} | awk '{print 10*$1}'`
 
 
 if [ $stage -le 1 ]; then

@@ -36,7 +36,8 @@ def main():
     new_model = models.MODELS[conf['model']].build_model(conf)
     new_dict = new_model.state_dict()
     for name, param in new_dict.items():
-        param.mul_(0.0)
+        if len(param.size()) > 0:
+            param.mul_(0.0)
     
     fraction = 1.0 / (args.end - args.start + 1)
     for m in range(args.start, args.end + 1):
@@ -46,7 +47,10 @@ def main():
         )
         for name, p in state_dict['model'].items():
             if name in new_dict:
-                new_dict[name].add_(p, alpha=fraction)
+                if len(p.size()) != 0:
+                    new_dict[name].add_(p, alpha=fraction)
+                else:
+                    new_dict[name] = (p * fraction).type(new_dict[name].dtype)
     torch.save(
         {'model': new_dict},
         args.modeldir + '/{}_{}.mdl'.format(args.start, args.end)
