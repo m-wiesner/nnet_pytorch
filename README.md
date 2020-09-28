@@ -66,10 +66,12 @@ TODO
 Example Recipes
 -------------------------------------------------------------------------------
 For now all of the examples are based on librispeech, though any existing 
-kaldi recipe can be easily modified to use nnet_pytorch instead of nnet3.
-Generally the procedure is as follows. We have also trained good performing ASR
-models for the BABEL data sets with this code, but have not yet committed the
-recipe. 
+kaldi recipe can be easily modified to use nnet_pytorch instead of nnet3. See
+librispeech100 for a full example. The recipe in librilight probably needs to
+be updated. We have also trained good performing ASR models for the BABEL data
+sets with this code, but have not yet committed the recipe.
+
+The procedure for making new recipes:
 
 1. Use normal kaldi recipe to produce good HMM-GMM models.
 2. Create the chain directory with the appropriate subsampling factor (model specific).
