@@ -14,6 +14,8 @@ acwt=1.0
 testsets="dev_clean dev_other test_clean test_other"
 decode_nj=80
 
+. ./utils/parse_options.sh
+
 set -euo pipefail
 
 tree=${chaindir}/tree
