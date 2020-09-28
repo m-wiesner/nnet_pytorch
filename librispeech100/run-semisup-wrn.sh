@@ -32,7 +32,6 @@ set -euo pipefail
 
 [ ! -f ${init} ] && echo "Expected ${init} to exist." && exit 1; 
 tree=${chaindir}/tree
-post_decode_acwt=`echo ${acwt} | awk '{print 10*$1}'`
 
 # Make the unlabeled data
 if [ $stage -le 0 ]; then
@@ -59,7 +58,7 @@ if [ $stage -eq 1 ]; then
     resume_opts="--resume ${resume}"
   fi 
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
-  ./local/train_async_parallel2.sh ${resume_opts} \
+  ./local/train_async_parallel.sh ${resume_opts} \
     --gpu true \
     --objective SemisupLFMMI \
     --denom-graph ${chaindir}/den.fst \
