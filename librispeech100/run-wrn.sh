@@ -6,6 +6,7 @@
 stage=0
 subsampling=4
 chaindir=exp/chain_wrn
+num_leaves=3500
 model_dirname=wrn
 batches_per_epoch=250
 num_epochs=240
@@ -34,7 +35,7 @@ if [ $stage -le 1 ]; then
   steps/nnet3/chain/build_tree.sh \
     --frame-subsampling-factor ${subsampling} \
     --context-opts "--context-width=2 --central-position=1" \
-    --cmd "$train_cmd" 3500 data/train_100h \
+    --cmd "$train_cmd" ${num_leaves} data/train_100h \
     $lang exp/tri3_ali_train_100h ${tree}
 
   ali-to-phones ${tree}/final.mdl ark:"gunzip -c ${tree}/ali.*.gz |" ark:- |\

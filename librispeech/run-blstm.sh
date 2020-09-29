@@ -5,12 +5,12 @@
 
 stage=0
 subsampling=3
-chaindir=exp/chain_tdnn
-num_leaves=3500
-model_dirname=tdnn
-batches_per_epoch=250
-num_epochs=240
-train_nj=2
+chaindir=exp/chain_blstm
+num_leaves=7000
+model_dirname=wrn
+batches_per_epoch=500
+num_epochs=300
+train_nj=4
 resume=
 num_split=20 # number of splits for memory-mapped data for training
 average=true
@@ -34,8 +34,8 @@ if [ $stage -le 1 ]; then
   steps/nnet3/chain/build_tree.sh \
     --frame-subsampling-factor ${subsampling} \
     --context-opts "--context-width=2 --central-position=1" \
-    --cmd "$train_cmd" ${num_leaves} data/train_100h \
-    $lang exp/tri3_ali_train_100h ${tree}
+    --cmd "$train_cmd" ${num_leaves} data/train_960 \
+    $lang exp/tri5b_ali_train_960 ${tree}
 
   ali-to-phones ${tree}/final.mdl ark:"gunzip -c ${tree}/ali.*.gz |" ark:- |\
     chain-est-phone-lm --num-extra-lm-states=2000 ark:- ${chaindir}/phone_lm.fst
@@ -43,16 +43,17 @@ if [ $stage -le 1 ]; then
   chain-make-den-fst ${tree}/tree ${tree}/final.mdl \
     ${chaindir}/phone_lm.fst ${chaindir}/den.fst ${chaindir}/normalization.fst
 
-  ali-to-pdf ${tree}/final.mdl ark:"gunzip -c ${tree}/ali.*.gz |" ark,t:data/train_100h_fbank/pdfid.${subsampling}.tgt
+  ali-to-pdf ${tree}/final.mdl ark:"gunzip -c ${tree}/ali.*.gz |" ark,t:data/train_960_fbank/pdfid.${subsampling}.tgt
 fi
 
 
+# Multigpu training of Chain-WideResNet with optimizer state averaging
 if [ $stage -le 2 ]; then
   resume_opts=
   if [ ! -z $resume ]; then
     resume_opts="--resume ${resume}"
   fi 
-  
+
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
   train_async_parallel.sh ${resume_opts} \
     --gpu true \
@@ -60,13 +61,13 @@ if [ $stage -le 2 ]; then
     --denom-graph ${chaindir}/den.fst \
     --num-pdfs ${num_pdfs} \
     --subsample ${subsampling} \
-    --model ChainTDNN \
-    --hdim 1024  \
-    --num-layers 13 \
+    --model ChainBLSTM \
+    --hdim 1024 \
+    --num-layers 6 \
     --dropout 0.2 \
-    --prefinal-dim 192 \
-    --warmup 15000 \
-    --decay 1e-05 \
+    --prefinal-dim 512 \
+    --warmup 20000 \
+    --decay 1e-07 \
     --xent 0.1 \
     --l2 0.0001 \
     --weight-decay 1e-07 \
@@ -77,17 +78,17 @@ if [ $stage -le 2 ]; then
     --nj ${train_nj} \
     "[ \
         {\
-    'data': 'data/train_100h_fbank', \
-    'tgt': 'data/train_100h_fbank/pdfid.${subsampling}.tgt', \
-    'batchsize': 128, 'chunk_width': 140, \
+    'data': 'data/train_960_fbank', \
+    'tgt': 'data/train_960_fbank/pdfid.${subsampling}.tgt', \
+    'batchsize': 32, 'chunk_width': 140, \
     'left_context': 10, 'right_context': 5
         }\
      ]" \
     `dirname ${chaindir}`/${model_dirname}
 fi
 
-# Average the last 40 epochs
+# Average the last 60 epochs
 if $average; then
   echo "Averaging the last few epochs ..."
-  average_models.py `dirname ${chaindir}`/${model_dirname} 80 200 240
+  average_models.py `dirname ${chaindir}`/${model_dirname} 80 240 300
 fi

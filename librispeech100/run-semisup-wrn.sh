@@ -15,7 +15,6 @@ model_dirname=wrn_semisup
 batches_per_epoch=100
 num_epochs=240
 train_nj=2
-acwt=1.0
 resume=
 num_split=20 # number of splits for memory-mapped data for training
 . ./utils/parse_options.sh
