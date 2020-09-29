@@ -12,7 +12,7 @@ stage=0
 subsampling=4
 chaindir=exp/chain_wrn
 model_dirname=wrn_semisup
-batches_per_epoch=250
+batches_per_epoch=100
 num_epochs=240
 train_nj=2
 acwt=1.0
@@ -45,8 +45,8 @@ if [ $stage -le 0 ]; then
   ./steps/compute_cmvn_stats.sh data/train_860
   ./utils/fix_data_dir.sh data/train_860
 
-  ./local/split_memmap_data.sh data/train_860 ${num_split} 
-  python local/prepare_unlabeled_tgt.py --subsample ${subsampling} data/train_860/utt2num_frames > data/train_860/pdfid.${subsampling}.tgt
+  split_memmap_data.sh data/train_860 ${num_split} 
+  python prepare_unlabeled_tgt.py --subsample ${subsampling} data/train_860/utt2num_frames > data/train_860/pdfid.${subsampling}.tgt
 fi
 
 
@@ -58,7 +58,7 @@ if [ $stage -eq 1 ]; then
     resume_opts="--resume ${resume}"
   fi 
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
-  ./local/train_async_parallel.sh ${resume_opts} \
+  train_async_parallel.sh ${resume_opts} \
     --gpu true \
     --objective SemisupLFMMI \
     --denom-graph ${chaindir}/den.fst \

@@ -56,7 +56,7 @@ if [ $stage -le 2 ]; then
   fi 
   
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
-  ./local/train_async_parallel.sh ${resume_opts} \
+  train_async_parallel.sh ${resume_opts} \
     --gpu true \
     --objective LFMMI \
     --denom-graph ${chaindir}/den.fst \

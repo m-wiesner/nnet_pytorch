@@ -33,7 +33,7 @@ if [ ! -f data/dev_clean_fbank/mapped/feats.dat.1 ]; then
 fi
 
 for ds in $testsets; do 
-  ./local/decode_nnet_pytorch.sh --min-lmwt 6 \
+  decode_nnet_pytorch.sh --min-lmwt 6 \
                          --max-lmwt 18 \
                          --checkpoint ${checkpoint} \
                          --acoustic-scale ${acwt} \

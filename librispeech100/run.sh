@@ -142,7 +142,7 @@ if [ $stage -le 10 ]; then
   ./utils/fix_data_dir.sh ${traindir}${feat_affix}
 
   echo "Dumping memory mapped features ..."
-  ./local/split_memmap_data.sh data/train_100h_fbank ${num_split} 
+  split_memmap_data.sh data/train_100h_fbank ${num_split} 
 fi
 
 
