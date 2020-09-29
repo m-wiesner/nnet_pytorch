@@ -235,6 +235,8 @@ def parse_arguments():
             'ChainResnet',
             'WideResnet',
             'ChainWideResnet',
+            'BLSTM',
+            'ChainBLSTM'
         ]
     )
     parser.add_argument('--seed', type=int, default=0)
