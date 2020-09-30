@@ -15,20 +15,14 @@ mfccdir=mfcc
 
 stage=0
 subsampling=3
-chaindir=exp/chain_sub${subsampling}
-model_dirname=model_blstm
-resume=
-
-testsets="dev_clean dev_other test_clean test_other"
-decode_nj=80
 num_split=20
 
 . ./utils/parse_options.sh
 
 set -euo pipefail
 
-tree=${chaindir}/tree
 mkdir -p $data
+
 
 if [ $stage -le 0 ]; then
   local/download_lm.sh $lm_url $data data/local/lm
@@ -43,11 +37,6 @@ if [ $stage -le 1 ]; then
     "<UNK>" data/local/lang_tmp_nosp data/lang_nosp
 
   local/format_lms.sh --src-dir data/lang_nosp data/local/lm
-  # Create ConstArpaLm format language model for full 3-gram and 4-gram LMs
-  utils/build_const_arpa_lm.sh data/local/lm/lm_tglarge.arpa.gz \
-    data/lang_nosp data/lang_nosp_test_tglarge
-  utils/build_const_arpa_lm.sh data/local/lm/lm_fglarge.arpa.gz \
-    data/lang_nosp data/lang_nosp_test_fglarge
 fi
 
 if [ $stage -le 2 ]; then
@@ -201,74 +190,7 @@ if [ $stage -le 15 ]; then
   utils/fix_data_dir.sh ${traindir}${feat_affix}
   steps/compute_cmvn_stats.sh ${traindir}${feat_affix}
   utils/fix_data_dir.sh ${traindir}${feat_affix}
-fi
 
-if [ $stage -le 16 ]; then
-  lang=data/lang_chain
-  cp -r data/lang $lang
-  silphonelist=$(cat $lang/phones/silence.csl) || exit 1;
-  nonsilphonelist=$(cat $lang/phones/nonsilence.csl) || exit 1;
-  # Use our special topology... note that later on may have to tune this
-  # topology.
-  steps/nnet3/chain/gen_topo.py $nonsilphonelist $silphonelist >$lang/topo
-
-  steps/align_fmllr.sh --nj 40 --cmd "$train_cmd" \
-                       data/train_960 data/lang exp/tri5b exp/tri5b_ali_960
-
-  steps/nnet3/chain/build_tree.sh \
-    --frame-subsampling-factor ${subsampling} \
-    --context-opts "--context-width=2 --central-position=1" \
-    --cmd "$train_cmd" 7000 data/train_960 \
-    $lang exp/tri5b_ali_train_960 ${tree}
-
-  ali-to-phones ${tree}/final.mdl ark:"gunzip -c ${tree}/ali.*.gz |" ark:- |\
-    chain-est-phone-lm --num-extra-lm-states=2000 ark:- ${chaindir}/phone_lm.fst
-
-  chain-make-den-fst ${tree}/tree ${tree}/final.mdl \
-    ${chaindir}/phone_lm.fst ${chaindir}/den.fst ${chaindir}/normalization.fst
-fi
-
-if [ $stage -le 17 ]; then
-  ./local/split_memmap_data.sh data/train_960_fbank ${num_split} 
-  ali-to-pdf ${tree}/final.mdl ark:"gunzip -c ${tree}/ali.*.gz |" ark,t:data/train_960_fbank/pdfid.${subsampling}.tgt
-fi
-
-if [ $stage -eq 18 ]; then
-
-  resume_opts=
-  if [ ! -z $resume ]; then
-    resume_opts="--resume ${resume}"
-  fi 
-
-  num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
-  ./local/train_async_parallel2.sh ${resume_opts} \
-    --gpu true \
-    --objective LFMMI \
-    --denom-graph ${chaindir}/den.fst \
-    --num-pdfs ${num_pdfs} \
-    --subsample ${subsampling} \
-    --model ChainBLSTM \
-    --hdim 1024 \
-    --num-layers 6 \
-    --dropout 0.2 \
-    --prefinal-dim 512 \
-    --warmup 20000 \
-    --decay 1e-07 \
-    --xent 0.1 \
-    --l2 0.0001 \
-    --weight-decay 1e-07 \
-    --lr 0.0002 \
-    --batches-per-epoch 500 \
-    --num-epochs 300 \
-    --validation-spks 0 \
-    --nj 4 \
-    "[ \
-        {\
-    'data': 'data/train_960_fbank', \
-    'tgt': 'data/train_960_fbank/pdfid.${subsampling}.tgt', \
-    'batchsize': 32, 'chunk_width': 140, \
-    'left_context': 10, 'right_context': 5
-        }\
-     ]" \
-    `dirname ${chaindir}`/${model_dirname}
+  echo "Dumping memory mapped features ..."
+  split_memmap_data.sh ${traindir}${feat_affix} ${num_split} 
 fi

@@ -11,20 +11,12 @@ lm_url=www.openslr.org/resources/11
 
 stage=0
 subsampling=4
-chaindir=exp/chain
-model_dirname=model1
-checkpoint=180_220.mdl
-acwt=1.0
-resume=
-testsets="dev_clean dev_other test_clean test_other"
-decode_nj=80
 num_split=20 # number of splits for memory-mapped data for training
+
 . ./utils/parse_options.sh
 
 set -euo pipefail
 
-tree=${chaindir}/tree
-post_decode_acwt=`echo ${acwt} | awk '{print 10*$1}'`
 mkdir -p $data
 
 
@@ -41,10 +33,6 @@ if [ $stage -le 1 ]; then
     "<UNK>" data/local/lang_tmp_nosp data/lang_nosp
 
   local/format_lms.sh --src-dir data/lang_nosp data/local/lm
-  
-  # Create ConstArpaLm format language model for full 3-gram and 4-gram LMs
-  utils/build_const_arpa_lm.sh data/local/lm/lm_tglarge.arpa.gz \
-    data/lang_nosp data/lang_nosp_test_tglarge
 fi
 
 if [ $stage -le 2 ]; then
@@ -142,7 +130,7 @@ if [ $stage -le 10 ]; then
   ./utils/fix_data_dir.sh ${traindir}${feat_affix}
 
   echo "Dumping memory mapped features ..."
-  ./local/split_memmap_data.sh data/train_100h_fbank ${num_split} 
+  split_memmap_data.sh ${traindir}${feat_affix} ${num_split} 
 fi
 
 

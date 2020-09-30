@@ -10,12 +10,12 @@ model_dirname=wrn_semisup
 checkpoint=20.mdl
 target="2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697"
 idim=80
-testsets="dev_clean dev_other test_clean test_other"
+
+. ./utils/parse_options.sh
 
 set -euo pipefail
 
 tree=${chaindir}/tree
-post_decode_acwt=`echo ${acwt} | awk '{print 10*$1}'`
 
 # Generation
 modeldir=`dirname ${chaindir}`/${model_dirname}
