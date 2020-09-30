@@ -7,10 +7,10 @@ import json
 import subprocess
 import numpy as np
 import torch
-from dataset import HybridAsrDataset
+import datasets
 import models
 from LRScheduler import LRScheduler
-from data_utils import evaluation_batches
+from batch_generators import evaluation_batches
 from IterationTypes import decode_dataset
 import kaldi_io
 
@@ -49,7 +49,7 @@ def main():
         print("Dummy targets not found")
         sys.exit(1)
     
-    dataset = HybridAsrDataset(
+    dataset = datasets.DATASETS[conf['datasetname']](
         args.datadir, targets, conf['num_targets'],
         left_context=dataset_args['left_context'],
         right_context=dataset_args['right_context'],
