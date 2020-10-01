@@ -128,9 +128,6 @@ if [ $stage -le 10 ]; then
   ./utils/fix_data_dir.sh ${traindir}${feat_affix}
   ./steps/compute_cmvn_stats.sh ${traindir}${feat_affix}
   ./utils/fix_data_dir.sh ${traindir}${feat_affix}
-
-  echo "Dumping memory mapped features ..."
-  split_memmap_data.sh ${traindir}${feat_affix} ${num_split} 
 fi
 
 

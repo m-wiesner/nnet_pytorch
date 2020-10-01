@@ -19,7 +19,6 @@ class HybridAsrDataset(NnetPytorchDataset):
     def add_args(parser):
         parser.add_argument('--perturb-type', type=str, default='none')
         parser.add_argument('--utt-subset', default=None)
-        parser.add_argument('--mean-var', default="(True, 'norm')")
 
     @classmethod
     def build_dataset(cls, ds):
@@ -175,7 +174,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         x = np.array(self.data[split_idx][lower_boundary: upper_boundary, :])
                 
         # Apply cmvn
-        if self.mean or self.var:
+        if self.mean or (self.var != 'none'):
             x = self.apply_cmvn(x, utt_name, mean=self.mean, var=self.var)
 
         # This is solving the edge case needed when the beginning

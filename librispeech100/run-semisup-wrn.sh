@@ -10,6 +10,8 @@ unlabeled_data=/export/corpora5 #/PATH/TO/LIBRISPEECH/data
 
 stage=0
 subsampling=4
+traindir=data/train_100h
+feat_affix=_fbank
 chaindir=exp/chain_wrn
 model_dirname=wrn_semisup
 batches_per_epoch=100
@@ -31,6 +33,8 @@ set -euo pipefail
 
 [ ! -f ${init} ] && echo "Expected ${init} to exist." && exit 1; 
 tree=${chaindir}/tree
+targets=${traindir}${feat_affix}/pdfid.${subsampling}.tgt
+trainname=`basename ${traindir}`
 
 # Make the unlabeled data
 if [ $stage -le 0 ]; then
@@ -44,8 +48,8 @@ if [ $stage -le 0 ]; then
   ./steps/compute_cmvn_stats.sh data/train_860
   ./utils/fix_data_dir.sh data/train_860
 
-  split_memmap_data.sh data/train_860 ${num_split} 
   python prepare_unlabeled_tgt.py --subsample ${subsampling} data/train_860/utt2num_frames > data/train_860/pdfid.${subsampling}.tgt
+  split_memmap_data.sh data/train_860 data/train_860/pdfid.${subsampling}.tgt ${num_split} 
 fi
 
 
@@ -94,16 +98,18 @@ if [ $stage -eq 1 ]; then
     --init ${init} \
     "[ \
         {\
-    'data': 'data/train_100h_fbank', \
-    'tgt': 'data/train_100h_fbank/pdfid.${subsampling}.tgt', \
+    'data': '${traindir}${feat_affix}', \
+    'tgt': '${targets}', \
     'batchsize': 32, 'chunk_width': 140, \
     'left_context': 10, 'right_context': 5 \
+    'mean_norm': True, 'var_norm': 'norm' \
         },\
         {\
      'data': 'data/train_860', \
      'tgt': 'data/train_860/pdfid.${subsampling}.tgt', \
      'batchsize': 16, 'chunk_width': 60, \
      'left_context': 10, 'right_context': 5 \
+     'mean_norm': True, 'var_norm': 'norm' \
        },\
      ]" \
      `dirname ${chaindir}`/${model_dirname}
