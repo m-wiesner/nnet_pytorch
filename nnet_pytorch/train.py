@@ -229,12 +229,10 @@ def parse_arguments():
     parser.add_argument('--datasetname', default='HybridASR',
         choices=[
             'HybridASR',
-            'HybridASRWithIvector'
         ])
     parser.add_argument('--expdir')
     parser.add_argument('--num-targets', type=int)
     parser.add_argument('--idim', type=int)
-    parser.add_argument('--ivector-dim', type=int, default=None)
     parser.add_argument('--priors-only', action='store_true')
     parser.add_argument('--model', default='TDNN',
         choices=[
@@ -246,7 +244,6 @@ def parse_arguments():
             'ChainWideResnet',
             'BLSTM',
             'ChainBLSTM',
-            'ChainBLSTMWithIvector'
         ]
     )
     parser.add_argument('--seed', type=int, default=0)
