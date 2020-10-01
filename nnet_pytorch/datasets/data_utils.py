@@ -5,7 +5,7 @@ import torch
 import random
 
 
-def memmap_feats(feats_scp, f_memmapped, dtype=np.float32):
+def memmap_feats(feats_scp, f_memmapped, utt_list, dtype=np.float32):
     '''
         Maps the feats.scp file from kaldi to a memory mapped numpy object.
         This allows for fast i/o when creating window minibatches from slices
@@ -42,6 +42,8 @@ def memmap_feats(feats_scp, f_memmapped, dtype=np.float32):
     offset = 0
     for i, (k, m) in enumerate(kaldi_io.read_mat_scp(feats_scp)):
         print('Utterance ', i, ' : ', k)
+        if k not in utt_list:
+            continue;
         m = m.astype(dtype)
         offsets[k.encode()] = offset
         new_offset = offset + utt_lens[k.encode()]
