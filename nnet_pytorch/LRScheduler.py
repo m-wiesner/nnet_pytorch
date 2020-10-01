@@ -68,6 +68,6 @@ class LRScheduler(object):
         self.decay = state_dict['decay']
         self.num_warmup_updates = state_dict['warmup_updates']
         self.num_fixed_updates = state_dict['fixed_updates']
-        self.decay_updates = state_dict['decay_updates']
+        self.num_decay_updates = state_dict['decay_updates']
         self.lr = state_dict['lr']
         self.curr_lr = state_dict['curr_lr']
