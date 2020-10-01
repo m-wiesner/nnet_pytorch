@@ -1,9 +1,9 @@
 import numpy as np
 import torch
-from data_utils import memmap_feats, get_targets
 from bisect import bisect
 from collections import namedtuple
-from data_utils import memmap_feats, get_targets, load_cmvn, load_utt2spk, load_utt_subset, Minibatch
+from .data_utils import *
+from .NnetPytorchDataset import NnetPytorchDataset
 import kaldi_io
 import os
 import pickle
@@ -11,19 +11,33 @@ import random
 from itertools import groupby
 
 
-class HybridAsrDataset(object):
+class HybridAsrDataset(NnetPytorchDataset):
+
+    Minibatch = namedtuple('Minibatch', ['input', 'target', 'metadata'])
+
     @staticmethod
     def add_args(parser):
         parser.add_argument('--perturb-type', type=str, default='none')
-        parser.add_argument('--validation-spks', type=int, default=5)
         parser.add_argument('--utt-subset', default=None)
         parser.add_argument('--mean-var', default="(True, 'norm')")
 
-    def __init__(self, datadir, targets, num_targets,
+    @classmethod
+    def build_dataset(cls, ds):
+        return HybridAsrDataset(
+            ds['data'], ds['tgt'],
+            left_context=ds['left_context'],
+            right_context=ds['right_context'],
+            chunk_width=ds['chunk_width'],
+            batchsize=ds['batchsize'],
+            subsample=ds['subsample'],
+            mean=ds['mean_norm'], var=['var_norm'],
+        )
+    
+    def __init__(self, datadir, targets,
         dtype=np.float32, memmap_affix='.dat',
         left_context=10, right_context=3, chunk_width=1,
         batchsize=128, mean=True, var='norm',
-        validation=1, utt_subset=None, subsample=1,
+        utt_subset=None, subsample=1,
         perturb_type='none',
     ):
         # Load CMVN
@@ -44,16 +58,12 @@ class HybridAsrDataset(object):
         with open(os.path.sep.join((datadir, 'num_split'))) as f:
             num_split = int(f.readline().strip())
 
-        # Get some held out speakers 
-        self.heldout = set()
-        if validation > 0:
-            self.heldout = set(random.sample(self.spk2utt.keys(), validation))   
                 
         # Dump memmapped features (Faster I/O and no egs creation)
-        feats_scp = os.path.sep.join((datadir,'feats.scp'))
+        feats_scp = os.path.sep.join((datadir, 'feats.scp'))
         f_memmap = feats_scp + memmap_affix
-        metadata_path = os.path.sep.join((datadir,'mapped','metadata'))
-        self.data_path = os.path.sep.join((datadir,'mapped','feats.dat'))
+        metadata_path = os.path.sep.join((datadir, 'mapped', 'metadata'))
+        self.data_path = os.path.sep.join((datadir, 'mapped', 'feats.dat'))
         utt_lengths = {}
         offsets = []
         data_shape = []
@@ -86,11 +96,14 @@ class HybridAsrDataset(object):
         self.utt_offsets = [sorted(offset_n.items(), key=lambda x: x[1]) for offset_n in offsets] # sorted list of utterances by offset
         self.offsets = [[u[1] for u in offset_n] for offset_n in self.utt_offsets] # list of sorted list of offsets
         self.data_shape = data_shape # list of shape of the whole data (per split)
-                
+
+        self.split_offsets = [0]
+        for shape in self.data_shape:
+            self.split_offsets.append(self.split_offsets[-1] + shape[0])
+        
         # Get targets. Dummy targets for utterances where labels are unknown
         with open(targets) as f:
             self.targets = get_targets(f)
-        self.num_targets = num_targets # Number of output nodes in DNN
         self.left_context = left_context
         self.right_context = right_context
         self.chunk_width = chunk_width
@@ -119,7 +132,7 @@ class HybridAsrDataset(object):
                 shape=self.data_shape[split_idx],
                 mode='r',
             )
-        )
+        )  
 
     def __getitem__(self, index):
         '''
@@ -138,13 +151,11 @@ class HybridAsrDataset(object):
                 ]
             )
         '''
-        split_idx, idx = index
         # Find which utterance the index belongs to
+        split_idx, idx = index
         utt_idx = max(0, bisect(self.offsets[split_idx], idx) - 1)
         utt_name, offset = self.utt_offsets[split_idx][utt_idx]
-        # Check that the utterances has a target (successful alignment)
-        if utt_name not in self.targets:
-            return None 
+ 
         utt_length = self.utt_lengths[utt_name]
         # Retrieve the appropriate target
         target_start = (idx - offset) // self.subsample
@@ -185,7 +196,7 @@ class HybridAsrDataset(object):
             'offset': offset,
             'length': utt_length,
         }
-        return Minibatch(x, target, metadata)
+        return HybridAsrDataset.Minibatch(x, target, metadata)
 
     def apply_cmvn(self, x, utt_name, mean=False, var='norm', max_val=32.0, min_val=-16.0):
         '''
@@ -204,3 +215,120 @@ class HybridAsrDataset(object):
             x_ = x_ / (max_val - min_val)
              
         return x_
+
+    def __len__(self):
+        return sum(s[0] for s in self.data_shape)
+    
+    def size(self, idx):
+        return 1
+
+    def minibatch(self):
+        batchlength = self.left_context + self.right_context + self.chunk_width
+        batchdim = self.data_shape[0][1]
+        # Initialize batch
+        input_tensor = torch.zeros((self.batchsize, batchlength, batchdim))
+        output = torch.zeros(
+            (self.batchsize, self.subsample_chunk_width),
+            dtype=torch.int64
+        )
+        name, index, offset, length, split = [], [], [], [], []
+        size = 0
+        while size < self.batchsize:
+            # first sample a data split at random
+            split_idx = random.randint(0, len(self.data_shape) - 1)
+            
+            # now sample a data point from this split
+            # random.randint includes the endpoints
+            idx = random.randint(0, self.data_shape[split_idx][0] - 1)
+            sample = self[(split_idx, idx)]
+            
+            metadata = sample.metadata 
+
+            # Check that the chunk width does not go over the utterance
+            # boundary
+            start_idx = metadata['index'] - metadata['offset'] 
+            if start_idx + self.chunk_width > metadata['length']:
+                continue;  
+            
+            name.append(metadata['name'])
+            split.append(metadata['split'])
+            index.append(metadata['index'])
+            offset.append(metadata['offset'])
+            length.append(metadata['length'])
+            input_tensor[size, :, :] = perturb(
+                torch.from_numpy(sample.input),
+                perturb_type=self.perturb_type,
+            )
+            output[size, :] = torch.LongTensor(sample.target)
+
+            size += self.size(idx)
+        
+        metadata = {
+            'name': name,
+            'split': split,
+            'index': index,
+            'offset': offset,
+            'length': length,
+            'left_context': self.left_context,
+            'right_context': self.right_context,
+        }
+        output_tensor = torch.LongTensor(output)
+        self.closure(set(split))
+        return HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
+        
+
+    def evaluation_batches(self):
+        for u in self.utt_subset:
+            split_idx, start = self.offsets_dict[u]
+            end = start + self.utt_lengths[u] 
+            i = 0
+            inputs, output = [], []
+            length, offset, index, name, split = [], [], [], [], []
+            for idx in range(start, end, self.chunk_width):
+                sample = self[(split_idx, idx)]
+                metadata = sample.metadata
+                name.append(metadata['name'])
+                split.append(metadata['split'])
+                index.append(metadata['index'])
+                offset.append(metadata['offset'])
+                length.append(metadata['length'])
+                inputs.append(sample.input) 
+                output.extend(sample.target)
+                i += 1
+                # Yield the minibatch when this one is full 
+                if i == self.batchsize:
+                    metadata = {
+                        'name': name, 'index': index, 'split': split,
+                        'offset': offset, 'length': length,
+                        'left_context': self.left_context,
+                        'right_context': self.right_context,
+                    }
+                    input_tensor = torch.tensor(inputs, dtype=torch.float32) 
+                    output_tensor = torch.LongTensor(output)
+                    yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
+                    i = 0
+                    inputs, output = [], []
+                    length, offset, index, name = [], [], [], [], []
+            # Yield the minibatch when the utterance is done
+            if i > 0:
+                metadata = {
+                    'name': name, 'index': index, 'split': split,
+                    'offset': offset, 'length': length,
+                    'left_context': self.left_context,
+                    'right_context': self.right_context,
+                }
+                input_tensor = torch.tensor(inputs, dtype=torch.float32) 
+                output_tensor = torch.LongTensor(output)
+                yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
+
+    
+    def closure(self, splits):
+        for idx in splits:
+            self.free_ram(idx)
+
+    
+    def move_to(b, device):
+        '''
+            Move minibatch b to device
+        '''
+        return HybridAsrDataset.Minibatch(b.input.to(device), b.target.to(device), b.metadata)

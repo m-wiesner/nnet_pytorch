@@ -7,12 +7,16 @@ import subprocess
 import random
 import numpy as np
 import torch
-from dataset import HybridAsrDataset
+import datasets
 import models
 import objectives
 from LRScheduler import LRScheduler
 from itertools import chain
-from data_utils import multiset_batches, batches, validation_batches
+from batch_generators import (
+    multiset_batches,
+    batches,
+    evaluation_batches,
+)
 from IterationTypes import train_epoch, validate, decode_dataset
 
 
@@ -54,26 +58,13 @@ def main():
 
     # Define dataset
     print("Defining dataset object ...")
-    datasets = []
+    datasets_list = []
     dataset_args = eval(args.datasets)
-    mean_norm, var_norm = eval(args.mean_var)
     for ds in dataset_args:
-        datasets.append(
-            HybridAsrDataset(
-                ds['data'], ds['tgt'], args.num_targets,
-                left_context=ds['left_context'],
-                right_context=ds['right_context'],
-                chunk_width=ds['chunk_width'],
-                batchsize=ds['batchsize'],
-                validation=args.validation_spks,
-                subsample=args.subsample,
-                mean=mean_norm, var=var_norm,
-            )
+        ds.update({'subsample': args.subsample})
+        datasets_list.append(
+            datasets.DATASETS[args.datasetname].build_dataset(ds)
         )
-
-
-    # Get the feature input dimension (needed for the model)
-    conf['idim'] = datasets[0].data_shape[0][1] 
 
     # Define model
     print("Defining model ...")
@@ -119,7 +110,7 @@ def main():
     else:
         # Get priors if we are not resuming
         if args.objective == 'CrossEntropy':
-            get_priors(args, datasets[0])
+            get_priors(args, datasets_list[0])
     
     # Initializing with a pretrained model
     if args.init is not None:
@@ -130,9 +121,9 @@ def main():
   
     # train
     if not args.priors_only:
-        train(args, conf, datasets, model, objective, optimizer, lr_sched, device) 
+        train(args, conf, datasets_list, model, objective, optimizer, lr_sched, device) 
     else:
-        datasets[0].utt_subset = [i for i in random.sample(dataset.targets.keys(), 1000)]
+        datasets_list[0].utt_subset = [i for i in random.sample(dataset.targets.keys(), 1000)]
         priors = update_priors(args, datasets[0], model, device=device)
         with open(os.path.join(args.expdir, 'priors_updated'), 'w') as f:
             json.dump(priors, f, indent=4, separators=(',', ': '))
@@ -140,7 +131,7 @@ def main():
     print("Done.")
 
 
-def train(args, conf, datasets, model, objective, optimizer, lr_sched, device):
+def train(args, conf, datasets, model, objective, optimizer, lr_sched, device, validation_datasets=None):
     '''
         Runs the training defined in args and conf, on the datasets, using
         the model, objective, optimizeer and lr_scheduler. Performs training
@@ -149,20 +140,28 @@ def train(args, conf, datasets, model, objective, optimizer, lr_sched, device):
     for e in range(conf['epoch'], conf['epoch'] + args.num_epochs):
         # Train 1 epoch
         generator = multiset_batches(
-            args.batches_per_epoch,
-            datasets,
-        )
-        valid_generator = validation_batches(datasets[0]) 
+            datasets, batches, args.batches_per_epoch,
+        ) 
+        
         avg_loss = train_epoch(
             args, generator, model, objective, optimizer, lr_sched, device=device
         )         
         print("Epoch: ", e + 1, " :: Avg Loss =", avg_loss)
+      
         # Run validation set
-        if args.objective in ('CrossEntropy'):
-            avg_loss_val, avg_acc_val = validate(
-                args, valid_generator, model, device=device
+        if validation_datasets is not None:
+            valid_generator = multiset_batches(
+                validation_datasets, evaluation_batches
             )
-            print("Validation Loss: ", avg_loss_val, "Acc: ", avg_acc_val)
+            avg_loss_val, avg_acc_val = validate(
+                args, valid_generator, model, device=device,
+            )
+        
+        #if args.objective in ('CrossEntropy'):
+        #    avg_loss_val, avg_acc_val = validate(
+        #        args, valid_generator, model, device=device
+        #    )
+        #    print("Validation Loss: ", avg_loss_val, "Acc: ", avg_acc_val)
         
         # Save checkpoint
         state_dict = {
@@ -224,8 +223,18 @@ def parse_arguments():
             "'left_context': 25,"
             "'right_context': 5}]"
     )
+    parser.add_argument('--validation-datasets',
+        default=None
+    )
+    parser.add_argument('--datasetname', default='HybridASR',
+        choices=[
+            'HybridASR',
+            'HybridASRWithIvector'
+        ])
     parser.add_argument('--expdir')
     parser.add_argument('--num-targets', type=int)
+    parser.add_argument('--idim', type=int)
+    parser.add_argument('--ivector-dim', type=int, default=None)
     parser.add_argument('--priors-only', action='store_true')
     parser.add_argument('--model', default='TDNN',
         choices=[
@@ -236,7 +245,8 @@ def parse_arguments():
             'WideResnet',
             'ChainWideResnet',
             'BLSTM',
-            'ChainBLSTM'
+            'ChainBLSTM',
+            'ChainBLSTMWithIvector'
         ]
     )
     parser.add_argument('--seed', type=int, default=0)
@@ -265,7 +275,7 @@ def parse_arguments():
 
     # Args specific to different components. See model,LRScheduler,dataset}.py.
     args, leftover = parser.parse_known_args()  
-    HybridAsrDataset.add_args(parser)
+    datasets.DATASETS[args.datasetname].add_args(parser)
     models.MODELS[args.model].add_args(parser)
     objectives.OBJECTIVES[args.objective].add_args(parser)
     LRScheduler.add_args(parser)

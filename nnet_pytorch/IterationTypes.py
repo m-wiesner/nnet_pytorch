@@ -6,19 +6,21 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-from data_utils import batches, validation_batches, evaluation_batches, move_to 
+import datasets
 
 
 def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'):
     total_loss = 0.0
-    datasets = eval(args.datasets)
+    num_datasets = len(eval(args.datasets))
+    move_to = datasets.DATASETS[args.datasetname].move_to
+    
     for i, b in enumerate(generator, 1): 
         b = move_to(b, device)
         loss, correct = objective(model, b)
         if isinstance(loss, int):
             continue;
         print(
-            "Iter: ", i, " of ", args.batches_per_epoch * len(datasets),
+            "Iter: ", i, " of ", args.batches_per_epoch * num_datasets,
             "Loss: ", loss.data.item(),
             "LR: ", lr_sched.curr_lr, end=' '    
         )
@@ -33,12 +35,13 @@ def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_thresh)
             optim.step()
             optim.zero_grad()
-            lr_sched.step(1.0 / len(datasets)) 
+            lr_sched.step(1.0 / num_datasets) 
     return total_loss / args.batches_per_epoch
 
 
 def validate(args, generator, model, device='cpu'): 
     model.eval()
+    move_to = datasets.DATASETS[args.datasetname].move_to
     with torch.no_grad():
         correct = 0.0
         avg_loss = 0.0
@@ -60,7 +63,8 @@ def validate(args, generator, model, device='cpu'):
     return avg_loss, correct
 
 
-def decode_dataset(args, generator, model, device='cpu'): 
+def decode_dataset(args, generator, model, device='cpu'):
+    move_to = datasets.DATASETS[args.datasetname].move_to 
     for i, b in enumerate(generator):
         uttname = b.metadata['name'][0]
         b = move_to(b, device)
@@ -79,6 +83,7 @@ def decode_dataset(args, generator, model, device='cpu'):
 
 
 def evaluate_energies(args, generator, model, device='cpu'):
+    move_to = datasets.DATASETS[args.datasetname].move_to
     for i, b in enumerate(generator, 1):
         b = move_to(b, device)
         model_output = model(b)
