@@ -151,18 +151,17 @@ class HybridAsrDataset(NnetPytorchDataset):
             )
         '''
         # Find which utterance the index belongs to
-        split_idx, idx = index
-        utt_idx = max(0, bisect(self.offsets[split_idx], idx) - 1)
+        split_idx, utt_idx, idx = index
         utt_name, offset = self.utt_offsets[split_idx][utt_idx]
- 
         utt_length = self.utt_lengths[utt_name]
+                
         # Retrieve the appropriate target
         target_start = (idx - offset) // self.subsample
         target_end = min(
             len(self.targets[utt_name]),
             target_start + self.subsample_chunk_width,
         )
-        
+                
         target = self.targets[utt_name][target_start: target_end]
         
         # Get the lower and upper boundaries for the window
@@ -190,10 +189,6 @@ class HybridAsrDataset(NnetPytorchDataset):
         # Collect metadata
         metadata = {
             'name': utt_name,
-            'split': index[0],
-            'index': index[1],
-            'offset': offset,
-            'length': utt_length,
         }
         return HybridAsrDataset.Minibatch(x, target, metadata)
 
@@ -230,30 +225,28 @@ class HybridAsrDataset(NnetPytorchDataset):
             (self.batchsize, self.subsample_chunk_width),
             dtype=torch.int64
         )
-        name, index, offset, length, split = [], [], [], [], []
+        name, split = [], []
         size = 0
         while size < self.batchsize:
             # first sample a data split at random
-            split_idx = random.randint(0, len(self.data_shape) - 1)
+            split_idx = int((random.random() - 1e-09) * len(self.data_shape))
             
             # now sample a data point from this split
             # random.randint includes the endpoints
-            idx = random.randint(0, self.data_shape[split_idx][0] - 1)
-            sample = self[(split_idx, idx)]
-            
-            metadata = sample.metadata 
+            utt_idx = int((random.random() - 1e-09) * len(self.utt_offsets[split_idx]))
+            utt_name, utt_offset = self.utt_offsets[split_idx][utt_idx]
+            utt_length = self.utt_lengths[utt_name]
+            idx = int((random.random() - 1e-09) * utt_length)
 
             # Check that the chunk width does not go over the utterance
             # boundary
-            start_idx = metadata['index'] - metadata['offset'] 
-            if start_idx + self.chunk_width > metadata['length']:
-                continue;  
+            if idx + self.chunk_width > utt_length:
+                continue; 
             
-            name.append(metadata['name'])
-            split.append(metadata['split'])
-            index.append(metadata['index'])
-            offset.append(metadata['offset'])
-            length.append(metadata['length'])
+            split.append(split_idx)
+            sample = self[(split_idx, utt_idx, idx + utt_offset)]
+            name.append(sample.metadata['name'])
+            
             input_tensor[size, :, :] = perturb(
                 torch.from_numpy(sample.input),
                 perturb_type=self.perturb_type,
@@ -264,13 +257,10 @@ class HybridAsrDataset(NnetPytorchDataset):
         
         metadata = {
             'name': name,
-            'split': split,
-            'index': index,
-            'offset': offset,
-            'length': length,
             'left_context': self.left_context,
             'right_context': self.right_context,
         }
+
         output_tensor = torch.LongTensor(output)
         self.closure(set(split))
         return HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
@@ -282,23 +272,17 @@ class HybridAsrDataset(NnetPytorchDataset):
             end = start + self.utt_lengths[u] 
             i = 0
             inputs, output = [], []
-            length, offset, index, name, split = [], [], [], [], []
+            name = []
             for idx in range(start, end, self.chunk_width):
                 sample = self[(split_idx, idx)]
-                metadata = sample.metadata
-                name.append(metadata['name'])
-                split.append(metadata['split'])
-                index.append(metadata['index'])
-                offset.append(metadata['offset'])
-                length.append(metadata['length'])
+                name.append(sample.metadata['name'])
                 inputs.append(sample.input) 
                 output.extend(sample.target)
                 i += 1
                 # Yield the minibatch when this one is full 
                 if i == self.batchsize:
                     metadata = {
-                        'name': name, 'index': index, 'split': split,
-                        'offset': offset, 'length': length,
+                        'name': name, 
                         'left_context': self.left_context,
                         'right_context': self.right_context,
                     }
@@ -307,12 +291,11 @@ class HybridAsrDataset(NnetPytorchDataset):
                     yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
                     i = 0
                     inputs, output = [], []
-                    length, offset, index, name = [], [], [], [], []
+                    name = []
             # Yield the minibatch when the utterance is done
             if i > 0:
                 metadata = {
-                    'name': name, 'index': index, 'split': split,
-                    'offset': offset, 'length': length,
+                    'name': name, 
                     'left_context': self.left_context,
                     'right_context': self.right_context,
                 }

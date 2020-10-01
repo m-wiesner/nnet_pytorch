@@ -4,8 +4,8 @@
 . ./cmd.sh
 
 . ./utils/parse_options.sh
-if [ $# -ne 2 ]; then
-  echo "Usage: ./local/split_memmap_data.sh <datadir> <targets> <n>"
+if [ $# -ne 3 ]; then
+  echo "Usage: split_memmap_data.sh <datadir> <targets> <n>"
   exit 1;
 fi
 
@@ -19,7 +19,7 @@ mkdir -p $mapped_dir
 echo "$0: Splitting data in $num_split parts"
 # spread the mapped numpy arrays over various machines, as this data-set is quite large.
 if [[  $(hostname -f) ==  *.clsp.jhu.edu ]]; then
-  utils/create_split_dir.pl /export/b{11,12,13,14}/$USER/kaldi-data/egs/librispeech100/$mapped_dir/storage \
+  utils/create_split_dir.pl /export/b{11,12,13,14}/$USER/kaldi-data/egs/${dataname}_$(date +'%m_%d_%H_%M')/$mapped_dir/storage \
     $mapped_dir/storage
 fi
 utils/split_data.sh ${datadir} $num_split
