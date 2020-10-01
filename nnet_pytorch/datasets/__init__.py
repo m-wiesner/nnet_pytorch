@@ -17,7 +17,7 @@ for f in modules:
             module = importlib.import_module('datasets.' + os.path.basename(module_name))
 
 DATASETS = {
-    'HybridASR': HybridASR.HybridASRDataset,
-    'HybridASRWithIvector': HybridASRWithIvector.HybridASRWithIvectorDataset
+    'HybridASR': HybridASR.HybridAsrDataset,
+    'HybridASRWithIvector': HybridASRWithIvector.HybridAsrWithIvectorDataset
 }
 

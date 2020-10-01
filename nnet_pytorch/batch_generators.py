@@ -12,11 +12,12 @@ def multiset_batches(sets, genfun, *args):
     for s in sets:
         set_batches.append(genfun(s, *args))
 
-    for i in range(n):
-        for set_batch in set_batches:
-            b = next(set_batch, None)
-            if b is not None:
-                yield b
+    if args:
+        for i in range(args[0]):
+            for set_batch in set_batches:
+                b = next(set_batch, None)
+                if b is not None:
+                    yield b
 
 
 def evaluation_batches(dataset):

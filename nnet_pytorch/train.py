@@ -58,12 +58,12 @@ def main():
 
     # Define dataset
     print("Defining dataset object ...")
-    datasets = []
+    datasets_list = []
     dataset_args = eval(args.datasets)
     for ds in dataset_args:
         ds.update({'subsample': args.subsample})
-        datasets.append(
-            datatsets.DATASETS[args.datasetname].build_dataset(ds)
+        datasets_list.append(
+            datasets.DATASETS[args.datasetname].build_dataset(ds)
         )
 
     # Define model
@@ -110,7 +110,7 @@ def main():
     else:
         # Get priors if we are not resuming
         if args.objective == 'CrossEntropy':
-            get_priors(args, datasets[0])
+            get_priors(args, datasets_list[0])
     
     # Initializing with a pretrained model
     if args.init is not None:
@@ -121,9 +121,9 @@ def main():
   
     # train
     if not args.priors_only:
-        train(args, conf, datasets, model, objective, optimizer, lr_sched, device) 
+        train(args, conf, datasets_list, model, objective, optimizer, lr_sched, device) 
     else:
-        datasets[0].utt_subset = [i for i in random.sample(dataset.targets.keys(), 1000)]
+        datasets_list[0].utt_subset = [i for i in random.sample(dataset.targets.keys(), 1000)]
         priors = update_priors(args, datasets[0], model, device=device)
         with open(os.path.join(args.expdir, 'priors_updated'), 'w') as f:
             json.dump(priors, f, indent=4, separators=(',', ': '))
@@ -234,6 +234,7 @@ def parse_arguments():
     parser.add_argument('--expdir')
     parser.add_argument('--num-targets', type=int)
     parser.add_argument('--idim', type=int)
+    parser.add_argument('--ivector-dim', type=int, default=None)
     parser.add_argument('--priors-only', action='store_true')
     parser.add_argument('--model', default='TDNN',
         choices=[
@@ -244,7 +245,8 @@ def parse_arguments():
             'WideResnet',
             'ChainWideResnet',
             'BLSTM',
-            'ChainBLSTM'
+            'ChainBLSTM',
+            'ChainBLSTMWithIvector'
         ]
     )
     parser.add_argument('--seed', type=int, default=0)

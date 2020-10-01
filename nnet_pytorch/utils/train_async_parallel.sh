@@ -15,12 +15,15 @@ init=
 priors_only=false
 num_pdfs=2328 # gmm -- 9512
 optim="adam"
-mean_var="(True, 'norm')"
 
 # Debugging and data dumping
 debug=false
 
+# Dataset parameters
+datasetname=HybridASR
+
 # Model parameters
+idim=80
 subsample=3
 model=ChainTDNN #TDNN, ChainTDNN, Resnet, ChainResnet, WideResnet, ChainWideResnet
 hdim=625
@@ -32,6 +35,10 @@ depth=28
 bottleneck=92
 dropout=0.2
 objective=LFMMI #CrossEntropy, SemisupLFMMI, EBM_LFMMI
+
+# Ivector params
+ivector_dim=
+ivector_layers=1 # By default we use i-vectors to scale the output of the first layer
 
 # TS Comparison Loss
 teachers=""
@@ -70,11 +77,11 @@ sgld_optim=sgd
 l2_energy=0.0
 
 . ./utils/parse_options.sh
-if [ $# -ne 2 ]; then
-  echo "Usage: ./train_nnet_pytorch.sh <datasets> <odir>"
+if [ $# -ne 2 ] && [ $# -ne 3]; then
+  echo "Usage: ./train_async_parallel.sh <datasets> [<validation-datasets>] <odir>"
   echo " --gpu ${gpu} --debug ${debug} --priors-only ${priors_only}"
   echo " --batches-per-epoch ${batches_per_epoch} --num-epochs ${num_epochs} --delay-updates ${delay_updates}"
-  echo " --validation-spks ${validation_spks} --perturb-spk ${perturb_spk}"
+  echo " --validation-datasets ${validation_datasets} --perturb-spk ${perturb_spk}"
   echo " --model ${model} --objective ${objective} --num-pdfs ${num_pdfs} --subsample ${subsample}"
   echo " --optim ${optim} --lr ${lr} --warmup ${warmup} --decay ${decay} --fixed ${fixed} --weight-decay ${weight_decay}"
   echo " --hdim ${hdim} --num-layers ${num_layers} --prefinal-dim ${prefinal_dim} --dropout ${dropout}"
@@ -93,7 +100,12 @@ if [ $# -ne 2 ]; then
 fi
 
 datasets=$1
-odir=$2
+if [ $# -eq 2 ]; then
+  odir=$2
+else
+  validation_datasets=$2
+  odir=$3
+fi
 
 [ -z $denom_graph ] && [ $objective = 'LFMMI' ] && exit 1; 
 mkdir -p ${odir}
@@ -105,7 +117,6 @@ mkdir -p ${odir}
 if $debug; then
   gpu=false
   num_epoch=2
-  validation_spks=1
   batches_per_epoch=3
 fi
 
@@ -123,6 +134,12 @@ fi
 priors_only_opts=""
 if $priors_only; then
   priors_only_opts="--priors-only"
+fi
+
+# Validation datasets
+validation_opts=""
+if [ ! -z $validation_datasets ]; then
+  validation_opts="--validation-datasets $validation_datasets"
 fi
 
 # Objective Function options
@@ -143,11 +160,20 @@ fi
 mdl_opts=()
 if [[ $model = "TDNN" || $model = "ChainTDNN" ]]; then
   mdl_opts=('--tdnn-hdim' "${hdim}" '--tdnn-num-layers' "${num_layers}" '--tdnn-dropout' "${dropout}" '--tdnn-prefinal-dim' "${prefinal_dim}")
+elif [[ $model = "BLSTM" || $model = "ChainBLSTM" || $model = "BLSTMWithIvector" || $model = "ChainBLSTMWithIvector" ]]; then
+  mdl_opts=('--blstm-hdim' "${hdim}" '--blstm-num-layers' "${num_layers}" '--blstm-dropout' "${dropout}" '--blstm-prefinal-dim' "${prefinal_dim}")
 elif [[ $model = "Resnet" || $model = "ChainResnet" ]]; then
   #mdl_opts="${mdl_opts} --resnet-bottleneck ${bottleneck} --resnet-layers [[625, 3, 1], [625, 1, 3], [625, 3, 1], [625, 3, 1]] --resnet-hdim ${hdim}"
   mdl_opts=('--resnet-bottleneck' "${bottleneck}" '--resnet-hdim' "${hdim}" '--resnet-layers' "${layers}")
 elif [[ $model = "WideResnet" || $model = "ChainWideResnet" ]]; then
   mdl_opts=('--width' "${width}" '--depth' "${depth}")
+fi
+
+# Ivector options
+ivector_opts=
+if [[ $model = "BLSTMWithIvector" || $model = "ChainBLSTMWithIvector" ]]; then
+  mdl_opts+=('--ivector-layers' "${ivector_layers}")
+  ivector_opts="--ivector-dim $ivector_dim"
 fi
 
 ###############################################################################
@@ -175,19 +201,19 @@ for e in `seq ${start_epoch} ${num_epochs}`; do
       job_seed=$(($epoch_seed + $j))
       ${train_cmd} ${odir}/train.${e}.${j}.log \
         train.py ${gpu_opts} ${resume_opts} ${init_opts} \
-          ${obj_fun_opts} \
-          "${mdl_opts[@]}" \
+          ${obj_fun_opts} ${validation_opts} \
+          "${mdl_opts[@]}" ${ivector_opts}\
           --subsample ${subsample} \
+          --datasetname "${datasetname}" \
           --model ${model} \
           --objective ${objective} \
           --num-targets ${num_pdfs} \
           --expdir ${odir} \
           --datasets "${datasets}" \
-          --mean-var "${mean_var}" \
+          --idim "${idim}" \
           --batches-per-epoch ${batches_per_epoch} \
           --delay-updates ${delay_updates} \
           --num-epochs 1 \
-          --validation-spks ${validation_spks} \
           --optim ${optim} \
           --weight-decay ${weight_decay} \
           --lr ${lr} \

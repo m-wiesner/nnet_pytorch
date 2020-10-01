@@ -18,7 +18,6 @@ class HybridAsrDataset(NnetPytorchDataset):
     @staticmethod
     def add_args(parser):
         parser.add_argument('--perturb-type', type=str, default='none')
-        parser.add_argument('--validation-spks', type=int, default=5)
         parser.add_argument('--utt-subset', default=None)
         parser.add_argument('--mean-var', default="(True, 'norm')")
 
@@ -30,7 +29,6 @@ class HybridAsrDataset(NnetPytorchDataset):
             right_context=ds['right_context'],
             chunk_width=ds['chunk_width'],
             batchsize=ds['batchsize'],
-            validation=ds['validation'],
             subsample=ds['subsample'],
             mean=ds['mean_norm'], var=['var_norm'],
         )
@@ -39,7 +37,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         dtype=np.float32, memmap_affix='.dat',
         left_context=10, right_context=3, chunk_width=1,
         batchsize=128, mean=True, var='norm',
-        validation=1, utt_subset=None, subsample=1,
+        utt_subset=None, subsample=1,
         perturb_type='none',
     ):
         # Load CMVN
@@ -60,10 +58,6 @@ class HybridAsrDataset(NnetPytorchDataset):
         with open(os.path.sep.join((datadir, 'num_split'))) as f:
             num_split = int(f.readline().strip())
 
-        # Get some held out speakers 
-        self.heldout = set()
-        if validation > 0:
-            self.heldout = set(random.sample(self.spk2utt.keys(), validation))   
                 
         # Dump memmapped features (Faster I/O and no egs creation)
         feats_scp = os.path.sep.join((datadir,'feats.scp'))
@@ -158,6 +152,7 @@ class HybridAsrDataset(NnetPytorchDataset):
             )
         '''
         # Find which utterance the index belongs to
+        split_idx, idx = index
         utt_idx = max(0, bisect(self.offsets[split_idx], idx) - 1)
         utt_name, offset = self.utt_offsets[split_idx][utt_idx]
  
@@ -201,7 +196,7 @@ class HybridAsrDataset(NnetPytorchDataset):
             'offset': offset,
             'length': utt_length,
         }
-        return Minibatch(x, target, metadata)
+        return HybridAsrDataset.Minibatch(x, target, metadata)
 
     def apply_cmvn(self, x, utt_name, mean=False, var='norm', max_val=32.0, min_val=-16.0):
         '''
@@ -260,11 +255,11 @@ class HybridAsrDataset(NnetPytorchDataset):
             index.append(metadata['index'])
             offset.append(metadata['offset'])
             length.append(metadata['length'])
-            input_tensor[i, :, :] = perturb(
+            input_tensor[size, :, :] = perturb(
                 torch.from_numpy(sample.input),
                 perturb_type=self.perturb_type,
             )
-            output[i, :] = torch.LongTensor(sample.target)
+            output[size, :] = torch.LongTensor(sample.target)
 
             size += self.size(idx)
         
@@ -279,7 +274,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         }
         output_tensor = torch.LongTensor(output)
         self.closure(set(split))
-        return Minibatch(input_tensor, output_tensor, metadata) 
+        return HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
         
 
     def evaluation_batches(self):
@@ -310,7 +305,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                     }
                     input_tensor = torch.tensor(inputs, dtype=torch.float32) 
                     output_tensor = torch.LongTensor(output)
-                    yield Minibatch(input_tensor, output_tensor, metadata) 
+                    yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
                     i = 0
                     inputs, output = [], []
                     length, offset, index, name = [], [], [], [], []
@@ -324,7 +319,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                 }
                 input_tensor = torch.tensor(inputs, dtype=torch.float32) 
                 output_tensor = torch.LongTensor(output)
-                yield Minibatch(input_tensor, output_tensor, metadata) 
+                yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
 
     
     def closure(self, splits):
@@ -336,4 +331,4 @@ class HybridAsrDataset(NnetPytorchDataset):
         '''
             Move minibatch b to device
         '''
-        return Minibatch(b.input.to(device), b.target.to(device), b.metadata)
+        return HybridAsrDataset.Minibatch(b.input.to(device), b.target.to(device), b.metadata)
