@@ -92,20 +92,6 @@ def main():
             fraction, iteration=i,
         )
         
-        if 'buffer' in state_dict:
-            # Random sample of (fraction * buffersize) indices to take
-            buffsize = len(state_dict['buffer'])
-            num_samples = math.floor(fraction * buffsize)
-            idxs = torch.randint(0, buffsize, (num_samples,))
-            if hasattr(objective, 'sgld_sampler'):
-                # Sample fraction of elements from buffer 
-                new_buffer[i*num_samples:(i+1)*num_samples] = state_dict['buffer'][idxs].cpu()
-                new_buffer_numsteps[i*num_samples:(i+1)*num_samples] = state_dict['buffer_numsteps'][idxs].cpu() 
-                state_dict['buffer']
-            elif hasattr(objective, 'seq_ebm'):
-                new_buffer[i*num_samples:(i+1)*num_samples] = state_dict['buffer'][idxs].cpu() 
-                new_buffer_numsteps[i*num_samples:(i+1)*num_samples] = state_dict['buffer_numsteps'][idxs].cpu()
-                  
     new_state_dict = {
         'model': new_mdl_dict,
         'objective': new_objective_dict,
@@ -114,13 +100,6 @@ def main():
         'epoch': state_dict['epoch'],
     }
     
-    if 'buffer' in state_dict:
-        new_state_dict = {
-            **new_state_dict,
-            'buffer': new_buffer,
-            'buffer_numsteps': new_buffer_numsteps, 
-        }
-
     torch.save(
         new_state_dict,
         args.omodel,

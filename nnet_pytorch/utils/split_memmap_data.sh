@@ -5,12 +5,13 @@
 
 . ./utils/parse_options.sh
 if [ $# -ne 2 ]; then
-  echo "Usage: ./local/split_memmap_data.sh <datadir> <n>"
+  echo "Usage: ./local/split_memmap_data.sh <datadir> <targets> <n>"
   exit 1;
 fi
 
 datadir=$1
-num_split=$2
+targets=$2
+num_split=$3
 
 dataname=`basename ${datadir}`
 mapped_dir=${datadir}/mapped # don't change this path
@@ -28,7 +29,7 @@ for n in $(seq $num_split); do
   utils/create_data_link.pl $mapped_dir/feats.dat.$n
 done
 $train_cmd JOB=1:$num_split exp/make_fbank/${dataname}/memmap_data.JOB.log \
-  memmap_data.py ${datadir}/split${num_split}/JOB/feats.scp $mapped_dir/feats.dat.JOB \
+  memmap_data.py --utt-list ${targets} ${datadir}/split${num_split}/JOB/feats.scp $mapped_dir/feats.dat.JOB \
   $mapped_dir/metadata.JOB
 echo $num_split > ${datadir}/num_split
 

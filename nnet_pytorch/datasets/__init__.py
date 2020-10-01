@@ -18,6 +18,9 @@ for f in modules:
 
 DATASETS = {
     'HybridASR': HybridASR.HybridAsrDataset,
+<<<<<<< HEAD
     'HybridASRWithIvector': HybridASRWithIvector.HybridAsrWithIvectorDataset
+=======
+>>>>>>> 5fcf0d9f6497d1f84b231a809de492c63b0a2dae
 }
 

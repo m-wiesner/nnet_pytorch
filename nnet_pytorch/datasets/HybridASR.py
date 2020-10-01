@@ -19,7 +19,6 @@ class HybridAsrDataset(NnetPytorchDataset):
     def add_args(parser):
         parser.add_argument('--perturb-type', type=str, default='none')
         parser.add_argument('--utt-subset', default=None)
-        parser.add_argument('--mean-var', default="(True, 'norm')")
 
     @classmethod
     def build_dataset(cls, ds):
@@ -60,10 +59,10 @@ class HybridAsrDataset(NnetPytorchDataset):
 
                 
         # Dump memmapped features (Faster I/O and no egs creation)
-        feats_scp = os.path.sep.join((datadir,'feats.scp'))
+        feats_scp = os.path.sep.join((datadir, 'feats.scp'))
         f_memmap = feats_scp + memmap_affix
-        metadata_path = os.path.sep.join((datadir,'mapped','metadata'))
-        self.data_path = os.path.sep.join((datadir,'mapped','feats.dat'))
+        metadata_path = os.path.sep.join((datadir, 'mapped', 'metadata'))
+        self.data_path = os.path.sep.join((datadir, 'mapped', 'feats.dat'))
         utt_lengths = {}
         offsets = []
         data_shape = []
@@ -175,7 +174,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         x = np.array(self.data[split_idx][lower_boundary: upper_boundary, :])
                 
         # Apply cmvn
-        if self.mean or self.var:
+        if self.mean or (self.var != 'none'):
             x = self.apply_cmvn(x, utt_name, mean=self.mean, var=self.var)
 
         # This is solving the edge case needed when the beginning

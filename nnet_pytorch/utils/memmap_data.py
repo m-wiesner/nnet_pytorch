@@ -23,7 +23,7 @@ def main():
     if args.utt_list is not None:
         with open(args.utt_list, 'r') as f:
             for line in f:
-                utt_list.append(line.strip())
+                utt_list.append(line.strip().split(None, 1)[0])
     utt_lengths, offsets, data_shape = memmap_feats(
         args.feats_scp, args.feats_scp_mapped, utt_list
     ) 

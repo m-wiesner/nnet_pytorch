@@ -93,7 +93,7 @@ def load_ivectors(filename):
         Input argument may be an ark or scp file.
     '''
     ivectors = {}
-    for key,vec in kaldi_io.read_vec_flt_scp(filename):
+    for key, vec in kaldi_io.read_vec_flt_scp(filename):
         ivectors[key] = np.array(vec)
     return ivectors
 

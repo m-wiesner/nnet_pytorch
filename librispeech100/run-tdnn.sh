@@ -5,6 +5,8 @@
 
 stage=0
 subsampling=3
+traindir=data/train_100h
+feat_affix=_fbank
 chaindir=exp/chain_tdnn
 num_leaves=3500
 model_dirname=tdnn
@@ -20,6 +22,8 @@ average=true
 set -euo pipefail
 
 tree=${chaindir}/tree
+targets=${traindir}${feat_affix}/pdfid.${subsampling}.tgt
+trainname=`basename ${traindir}`
 
 if [ $stage -le 1 ]; then
   echo "Creating Chain Topology, Denominator Graph, and nnet Targets ..."
@@ -34,8 +38,8 @@ if [ $stage -le 1 ]; then
   steps/nnet3/chain/build_tree.sh \
     --frame-subsampling-factor ${subsampling} \
     --context-opts "--context-width=2 --central-position=1" \
-    --cmd "$train_cmd" ${num_leaves} data/train_100h \
-    $lang exp/tri3_ali_train_100h ${tree}
+    --cmd "$train_cmd" ${num_leaves} ${traindir} \
+    $lang exp/tri3_ali_${trainname} ${tree}
 
   ali-to-phones ${tree}/final.mdl ark:"gunzip -c ${tree}/ali.*.gz |" ark:- |\
     chain-est-phone-lm --num-extra-lm-states=2000 ark:- ${chaindir}/phone_lm.fst
@@ -43,11 +47,15 @@ if [ $stage -le 1 ]; then
   chain-make-den-fst ${tree}/tree ${tree}/final.mdl \
     ${chaindir}/phone_lm.fst ${chaindir}/den.fst ${chaindir}/normalization.fst
 
-  ali-to-pdf ${tree}/final.mdl ark:"gunzip -c ${tree}/ali.*.gz |" ark,t:data/train_100h_fbank/pdfid.${subsampling}.tgt
+  ali-to-pdf ${tree}/final.mdl ark:"gunzip -c ${tree}/ali.*.gz |" ark,t:${targets}
 fi
 
-
 if [ $stage -le 2 ]; then
+  echo "Dumping memory mapped features ..."
+  split_memmap_data.sh ${traindir}${feat_affix} ${targets} ${num_split} 
+fi
+
+if [ $stage -le 3 ]; then
   resume_opts=
   if [ ! -z $resume ]; then
     resume_opts="--resume ${resume}"
@@ -77,10 +85,11 @@ if [ $stage -le 2 ]; then
     --nj ${train_nj} \
     "[ \
         {\
-    'data': 'data/train_100h_fbank', \
-    'tgt': 'data/train_100h_fbank/pdfid.${subsampling}.tgt', \
+    'data': '${traindir}${feat_affix}', \
+    'tgt': '${targets}', \
     'batchsize': 128, 'chunk_width': 140, \
-    'left_context': 10, 'right_context': 5
+    'left_context': 10, 'right_context': 5, \
+    'mean_norm': True, 'var_norm': 'norm'
         }\
      ]" \
     `dirname ${chaindir}`/${model_dirname}
