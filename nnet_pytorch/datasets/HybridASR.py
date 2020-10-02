@@ -74,6 +74,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                 data_shape.append(data_shape_n)
        
         # Creates 1 file pointer per memmap split   
+        print(dtype)
         self.data = [
             np.memmap(
                 "{}.{}".format(self.data_path, n),
@@ -269,12 +270,13 @@ class HybridAsrDataset(NnetPytorchDataset):
     def evaluation_batches(self):
         for u in self.utt_subset:
             split_idx, start = self.offsets_dict[u]
+            utt_idx = max(0, bisect(self.offsets[split_idx], start) - 1)
             end = start + self.utt_lengths[u] 
             i = 0
             inputs, output = [], []
             name = []
             for idx in range(start, end, self.chunk_width):
-                sample = self[(split_idx, idx)]
+                sample = self[(split_idx, utt_idx, idx)]
                 name.append(sample.metadata['name'])
                 inputs.append(sample.input) 
                 output.extend(sample.target)

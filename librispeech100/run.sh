@@ -121,7 +121,7 @@ fi
 
 if [ $stage -le 10 ]; then
   traindir=data/train_100h
-  feat_affix=_fbank
+  feat_affix=_fbank_64
   echo "Making features for nnet training ..."
   ./utils/copy_data_dir.sh ${traindir} ${traindir}${feat_affix}
   ./steps/make_fbank.sh --cmd "$train_cmd" --nj 32 ${traindir}${feat_affix}
