@@ -63,11 +63,13 @@ if [ $stage -le 3 ]; then
   fi 
 
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
+  idim=$(feat-to-dim scp:${traindir}${feat_affix}/feats.scp -)
   train_async_parallel.sh ${resume_opts} \
     --gpu true \
     --objective LFMMI \
     --denom-graph ${chaindir}/den.fst \
     --num-pdfs ${num_pdfs} \
+    --idim ${idim} \
     --subsample ${subsampling} \
     --model ChainWideResnet \
     --depth 28 \

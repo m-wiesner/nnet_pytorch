@@ -74,6 +74,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                 data_shape.append(data_shape_n)
        
         # Creates 1 file pointer per memmap split   
+        print(dtype)
         self.data = [
             np.memmap(
                 "{}.{}".format(self.data_path, n),

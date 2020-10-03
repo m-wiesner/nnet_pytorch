@@ -14,7 +14,6 @@ lattice_beam=8.0
 beam=15.0
 acoustic_scale=1.0
 post_decode_acwt=10.0 # 10.0 for chain systems, 1.0 for non-chain
-mean_var="(True, True)"
 
 min_lmwt=6
 max_lmwt=18

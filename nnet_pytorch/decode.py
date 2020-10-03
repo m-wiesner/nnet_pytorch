@@ -47,7 +47,7 @@ def main():
     if not os.path.exists(targets):
         print("Dummy targets not found")
         sys.exit(1)
-    
+ 
     dataset_args.update(
         {'data':args.datadir, 'tgt':targets, 'subsample': subsample_val,
         'ivector_dim': args.ivector_dim})
@@ -121,6 +121,7 @@ def decode(args, dataset, model, priors, device='cpu'):
             # for lattice generation with latgen-faster-mapped
             for key, mat in decode_dataset(args, generator, model, device='cpu'):
                 if len(utt_mat) > 0 and key != prev_key:   
+                    import pdb; pdb.set_trace()
                     kaldi_io.write_mat(
                         f, np.concatenate(utt_mat, axis=0)[:utt_length, :],
                         key=prev_key.decode('utf-8')

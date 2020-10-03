@@ -22,9 +22,9 @@ for part in dev-clean dev-other test-clean test-other; do
   ./steps/compute_cmvn_stats.sh data/${dataname}_fbank
   ./utils/fix_data_dir.sh data/${dataname}_fbank
 
-  split_memmap_data.sh data/${dataname}_fbank $num_split 
   prepare_unlabeled_tgt.py --subsample ${subsampling} \
     data/${dataname}_fbank/utt2num_frames > data/${dataname}_fbank/pdfid.${subsampling}.tgt
+  split_memmap_data.sh data/${dataname}_fbank data/${dataname}_fbank/pdfid.${subsampling}.tgt $num_split 
 done
 
 exit 0;
