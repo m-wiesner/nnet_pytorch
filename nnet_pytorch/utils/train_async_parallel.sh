@@ -235,7 +235,7 @@ for e in `seq ${start_epoch} ${num_epochs}`; do
     combine_models="${combine_models} ${odir}/${e}.${j}.mdl"
   done
   
-  combine_models.py ${odir}/${e}.mdl 80 ${odir}/conf.1.json --models ${combine_models} > ${odir}/combine.${e}.log
+  combine_models.py ${odir}/${e}.mdl ${idim} ${odir}/conf.1.json --models ${combine_models} > ${odir}/combine.${e}.log
   resume_opts="--resume ${e}.mdl"
   init_opts=""
 done

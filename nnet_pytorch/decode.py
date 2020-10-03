@@ -33,7 +33,6 @@ def main():
     conf = json.load(open(args.modeldir + '/conf.1.json'))
     
     dataset_args = eval(conf['datasets'])[0]
-    mean_norm, var_norm = eval(conf['mean_var'])
     
     # Load the decoding dataset
     subsample_val = 1
@@ -49,20 +48,14 @@ def main():
         print("Dummy targets not found")
         sys.exit(1)
     
-    dataset = datasets.DATASETS[conf['datasetname']](
-        args.datadir, targets, conf['num_targets'],
-        left_context=dataset_args['left_context'],
-        right_context=dataset_args['right_context'],
-        chunk_width=dataset_args['chunk_width'],
-        batchsize=args.batchsize,
-        validation=0, utt_subset=args.utt_subset,
-        subsample=subsample_val,
-        mean=mean_norm, var=var_norm,
-    )
+    dataset_args.update(
+        {'data':args.datadir, 'tgt':targets, 'subsample': subsample_val,
+        'ivector_dim': args.ivector_dim})
+    dataset = datasets.DATASETS[conf['datasetname']].build_dataset(dataset_args)
 
     # We just need to add in the input dimensions. This depends on the type of
     # features used.
-    conf['idim'] = dataset.data_shape[0][1] 
+    conf['idim'] = args.idim
     
     print(conf) 
     # Build the model and send to the device (cpu or gpu). Generally cpu.
@@ -86,6 +79,7 @@ def main():
         # priors
         priors[priors < args.prior_floor] = 1e20
     args.objective = conf['objective']
+    args.datasetname = conf['datasetname']
     decode(args, dataset, model, priors, device=device)
 
 
@@ -109,7 +103,7 @@ def decode(args, dataset, model, priors, device='cpu'):
         args.words_file, args.trans_mdl, args.hclg,
         args.post_decode_acwt, args.dumpdir, args.job
     )
-    
+
     # Do the decoding (dumping senone posteriors)
     model.eval()
     with torch.no_grad():
@@ -150,6 +144,8 @@ def parse_arguments():
     parser.add_argument('--modeldir')
     parser.add_argument('--dumpdir')
     parser.add_argument('--checkpoint', default='final.mdl')
+    parser.add_argument('--idim', type=int)
+    parser.add_argument('--ivector-dim', type=int, default=None)
     parser.add_argument('--prior-scale', type=float, default=1.0)
     parser.add_argument('--prior-floor', type=float, default=-20)
     parser.add_argument('--prior-name', default='priors')
@@ -170,7 +166,7 @@ def parse_arguments():
     # Args specific to different components
     args, leftover = parser.parse_known_args()
     conf = json.load(open(args.modeldir + '/conf.1.json'))
-    HybridAsrDataset.add_args(parser)
+    datasets.DATASETS[conf['datasetname']].add_args(parser)
     models.MODELS[conf['model']].add_args(parser) 
     parser.parse_args(leftover, namespace=args) 
     return args

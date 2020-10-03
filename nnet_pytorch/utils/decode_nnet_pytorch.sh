@@ -12,7 +12,7 @@ max_active=7000
 max_mem=50000000
 lattice_beam=8.0
 beam=15.0
-acoustic_scale=0.1
+acoustic_scale=1.0
 post_decode_acwt=10.0 # 10.0 for chain systems, 1.0 for non-chain
 mean_var="(True, True)"
 
@@ -54,12 +54,15 @@ if [ $stage -le 0 ]; then
     segments=${data}/wav.scp
   fi
 
+idim=$(feat-to-dim scp:${data}/feats.scp - || exit 1;)
+
 ${decode_cmd} JOB=1:${nj} ${odir}/log/decode.JOB.log \
     ./utils/split_scp.pl -j ${nj} \$\[JOB -1\] ${segments} \|\
     decode.py --datadir ${data} \
       --modeldir ${pytorch_model} \
       --dumpdir ${odir} \
       --checkpoint ${checkpoint} \
+      --idim ${idim} \
       --prior-scale ${prior_scale} \
       --prior-floor ${prior_floor} \
       --prior-name ${prior_name} \

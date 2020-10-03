@@ -73,13 +73,13 @@ class BLSTM(torch.nn.Module):
         xs_pad = sample.input
         left_context = sample.metadata['left_context']
         right_context = sample.metadata['right_context']
-       
+        
         # Basic pattern is (blstm, relu, batchnorm, dropout) x num_layers 
         for blstm, batchnorm in zip(self.blstm, self.batchnorm[:-1]):
-            xs_pad = blstm(xs_pad)[0].transpose(0,1)
+            xs_pad = blstm(xs_pad)[0]
             xs_pad = self.nonlin(xs_pad)
             if not self.batch_norm_dropout: 
-                xs_pad = batchnorm(xs_pad)
+                xs_pad = batchnorm(xs_pad.transpose(0,1)).transpose(0,1)
                 xs_pad = F.dropout(xs_pad, p=self.dropout, training=self.training)
       
         # A few final layers
