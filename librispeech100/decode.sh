@@ -5,7 +5,7 @@ speech_data=/export/corpora5 #/PATH/TO/LIBRISPEECH/data
 . ./cmd.sh
 . ./path.sh
 
-stage=0
+stage=1
 subsampling=4
 chaindir=exp/chain
 model_dirname=model1
@@ -22,16 +22,22 @@ set -euo pipefail
 tree=${chaindir}/tree
 post_decode_acwt=`echo ${acwt} | awk '{print 10*$1}'`
 
+# Prepare the test sets if not already done
+if [ $stage -le 0 ]; then
+  if [ ! -f data/${testsets%% *}${feat_affix}/mapped/feats.dat.1 ]; then
+    ./local/prepare_test.sh --subsampling ${subsampling} \
+      --testsets ${testsets} \
+      --subsampling ${subsampling} \
+      --data ${speech_data} \
+      --feat-affix ${feat_affix}
+  fi
+fi
+
 # Echo Make graph if it does not exist
 if [ ! -f ${tree}/graph_tgsmall/HCLG.fst ]; then 
   ./utils/mkgraph.sh --self-loop-scale 1.0 \
     data/lang_test_tgsmall ${tree} ${tree}/graph_tgsmall
 fi
-
-## Prepare the test sets if not already done
-#if [ ! -f data/dev_clean${feat_affix}/mapped/feats.dat.1 ]; then
-#  ./local/prepare_test.sh --subsampling ${subsampling} --data ${speech_data} 
-#fi
 
 for ds in $testsets; do 
   decode_nnet_pytorch.sh --min-lmwt 6 \

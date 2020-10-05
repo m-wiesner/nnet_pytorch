@@ -30,6 +30,7 @@ class HybridAsrDataset(NnetPytorchDataset):
             batchsize=ds['batchsize'],
             subsample=ds['subsample'],
             mean=ds['mean_norm'], var=['var_norm'],
+            utt_subset=ds['utt_subset']
         )
     
     def __init__(self, datadir, targets,

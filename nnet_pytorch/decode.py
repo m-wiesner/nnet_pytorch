@@ -48,21 +48,16 @@ def main():
         print("Dummy targets not found")
         sys.exit(1)
     
-    dataset = datasets.DATASETS[conf['datasetname']](
-        args.datadir, targets,
-        left_context=dataset_args['left_context'],
-        right_context=dataset_args['right_context'],
-        chunk_width=dataset_args['chunk_width'],
-        batchsize=args.batchsize,
-        utt_subset=args.utt_subset,
-        subsample=subsample_val,
-        mean=dataset_args['mean_norm'], var=dataset_args['var_norm']
+    dataset_args.update(
+        {
+            'data':args.datadir,
+            'tgt':targets,
+            'subsample': subsample_val,
+            'utt_subset': args.utt_subset,
+        }
     )
-
-    # We just need to add in the input dimensions. This depends on the type of
-    # features used.
-    conf['idim'] = dataset.data_shape[0][1] 
     
+    dataset = datasets.DATASETS[conf['datasetname']].build_dataset(dataset_args)
     print(conf) 
     # Build the model and send to the device (cpu or gpu). Generally cpu.
     model = models.MODELS[conf['model']].build_model(conf)
@@ -127,7 +122,6 @@ def decode(args, dataset, model, priors, device='cpu'):
             # for lattice generation with latgen-faster-mapped
             for key, mat in decode_dataset(args, generator, model, device='cpu'):
                 if len(utt_mat) > 0 and key != prev_key:   
-                    import pdb; pdb.set_trace()
                     kaldi_io.write_mat(
                         f, np.concatenate(utt_mat, axis=0)[:utt_length, :],
                         key=prev_key.decode('utf-8')

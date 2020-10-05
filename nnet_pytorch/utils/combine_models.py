@@ -22,14 +22,12 @@ from torch._six import container_abcs
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('omodel', help='path to output model', type=str,)
-    parser.add_argument('idim', type=int)
     parser.add_argument('conf', type=str)
     parser.add_argument('--save-models', action='store_true')
     parser.add_argument('--models', nargs='+', type=str, help='paths to models')
     args = parser.parse_args()
 
     conf = json.load(open(args.conf))
-    conf['idim'] = args.idim
     new_model = models.MODELS[conf['model']].build_model(conf)
     objective = objectives.OBJECTIVES[conf['objective']].build_objective(conf)
    
