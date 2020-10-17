@@ -159,4 +159,6 @@ def perturb(x, perturb_type='none'):
         mask = (torch.arange(x.size(-1)) >= start) * (torch.arange(x.size(-1)) < end)  
         mask = mask[None, :].expand(x.size())
         x[mask] = 0.0 
+    elif perturb_type == 'gauss':
+        x += 0.0001 * torch.randn_like(x) 
     return x 

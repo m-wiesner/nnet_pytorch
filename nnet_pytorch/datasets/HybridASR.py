@@ -177,7 +177,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         # Apply cmvn
         if self.mean or (self.var != 'none'):
             x = self.apply_cmvn(x, utt_name, mean=self.mean, var=self.var)
-
+        
         # This is solving the edge case needed when the beginning
         # and end frames need to be padded with the appropriate contexts
         left_zero_pad = max(0, self.left_context - (idx - lower_boundary))
@@ -248,10 +248,14 @@ class HybridAsrDataset(NnetPytorchDataset):
             split.append(split_idx)
             sample = self[(split_idx, utt_idx, idx + utt_offset)]
             name.append(sample.metadata['name'])
-            
+        
+            perturb_type = 'none'   
+            if sample.target[0] == -1:
+                perturb_type = 'gauss'
+         
             input_tensor[size, :, :] = perturb(
                 torch.from_numpy(sample.input),
-                perturb_type=self.perturb_type,
+                perturb_type=perturb_type,
             )
             output[size, :] = torch.LongTensor(sample.target)
 
@@ -275,10 +279,11 @@ class HybridAsrDataset(NnetPytorchDataset):
             end = start + self.utt_lengths[u] 
             i = 0
             inputs, output = [], []
-            name = []
+            name, split = [], []
             for idx in range(start, end, self.chunk_width):
                 sample = self[(split_idx, utt_idx, idx)]
                 name.append(sample.metadata['name'])
+                split.append(split_idx)
                 inputs.append(sample.input) 
                 output.extend(sample.target)
                 i += 1
@@ -305,6 +310,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                 input_tensor = torch.tensor(inputs, dtype=torch.float32) 
                 output_tensor = torch.LongTensor(output)
                 yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
+                self.closure(set(split))
 
     
     def closure(self, splits):

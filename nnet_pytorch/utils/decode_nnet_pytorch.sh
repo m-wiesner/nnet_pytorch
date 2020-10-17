@@ -45,7 +45,7 @@ hclg=${graphdir}/HCLG.fst
 
 mkdir -p ${odir}/log
 
-decode_cmd="utils/queue.pl --mem 2G -l hostname='!b02*&!a*&!c06*&!c23*&!c24*&!c25*&!c26*&!c27*'" # The 'a' machines are just too slow
+decode_cmd="utils/queue.pl --mem 6G -l hostname='!b02*&!a*&!c06*&!c23*&!c24*&!c25*&!c26*&!c27*'" # The 'a' machines are just too slow
 if [ $stage -le 0 ]; then
   segments=${data}/segments
   if [ ! -f ${data}/segments ]; then

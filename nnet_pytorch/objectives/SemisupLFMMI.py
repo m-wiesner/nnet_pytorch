@@ -46,8 +46,8 @@ class ChainLoss(nn.Module):
         self.unsup_weight = unsup_weight
 
     def forward(self, model, sample):
-        chain_output = model(sample)
         is_unsup = sample.target[0, 0] == -1 
+        chain_output = model(sample)
         losses = [] 
         correct = None
         # SeqEBM
@@ -92,6 +92,11 @@ class ChainLoss(nn.Module):
         super().load_state_dict(state_dict)
         self.seq_ebm.load_state_dict(state_dict['seq_ebm'])
 
-    def generate(self):
-        return self.seq_ebm.sgld_sampler.buffer
+    def generate_from_buffer(self):
+        return self.seq_ebm.generate_from_buffer()
+
+    def generate_from_model(self, model, **kwargs):
+        return self.seq_ebm.generate_from_model(model, **kwargs)
+
+  
     

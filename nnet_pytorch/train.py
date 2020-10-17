@@ -61,7 +61,7 @@ def main():
     datasets_list = []
     dataset_args = eval(args.datasets)
     for ds in dataset_args:
-        ds.update({'subsample': args.subsample})
+        ds.update({'subsample': args.subsample, 'utt_subset': None})
         datasets_list.append(
             datasets.DATASETS[args.datasetname].build_dataset(ds)
         )

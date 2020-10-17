@@ -1,22 +1,20 @@
 #!/bin/bash
+. ./path.sh
+. ./cmd.sh
 
-data=/export/a15/vpanayotov/data
+data="/export/corpora5"
 subsampling=4
 num_split=20
 testsets="dev-clean dev-other test-clean test-other"
 feat_affix=_fbank
-standard_split=true
-
-. ./cmd.sh
-. ./path.sh
+standard_split=false
 
 . ./utils/parse_options.sh
-
-set -euo pipefail
 
 for part in $testsets; do
   echo "-------------- Making ${part} ----------------------"
   dataname=$(echo ${part} | sed s/-/_/g)
+  part=$(echo ${part} | sed s/_/-/g)
   if $standard_split; then
     local/data_prep.sh $data/LibriSpeech/${part} data/${dataname}
   else
@@ -34,6 +32,4 @@ for part in $testsets; do
   split_memmap_data.sh data/${dataname}${feat_affix} data/${dataname}${feat_affix}/pdfid.${subsampling}.tgt $num_split 
 done
 
-exit 0;
- 
 

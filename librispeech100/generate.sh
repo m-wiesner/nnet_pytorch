@@ -1,19 +1,16 @@
 #!/bin/bash
-
-. ./cmd.sh
 . ./path.sh
+. ./cmd.sh
 
 stage=0
 subsampling=4
 chaindir=exp/chain_wrn
 model_dirname=wrn_semisup
 checkpoint=20.mdl
-target="2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697 2697"
+target="2697 2697 2697 2697 2697 2697 2697 2697"
 idim=80
 
 . ./utils/parse_options.sh
-
-set -euo pipefail
 
 tree=${chaindir}/tree
 
@@ -27,6 +24,5 @@ ${generate_cmd} generate_conditional_from_buffer.py \
   --target ${target} \
   --idim ${idim} \
   --modeldir ${modeldir} --modelname ${checkpoint} \
-  --dumpdir ${gen_dir} --batchsize 32
-
-exit 0;
+  --dumpdir ${gen_dir} --batchsize 32 \
+  --left-context 10 --right-context 5 --chunk-width 30 

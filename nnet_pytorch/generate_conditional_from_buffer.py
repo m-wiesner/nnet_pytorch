@@ -53,8 +53,8 @@ def main():
     )
     objective.load_state_dict(mdl['objective']) 
     model.load_state_dict(mdl['model'])  
-    buff = objective.generate()
-    
+    buff = objective.generate_from_buffer()
+   
     # Get the chunkwidth
     cw = args.chunk_width
     cw += args.left_context + args.right_context
@@ -70,7 +70,7 @@ def main():
     model.eval()
     for p in model.parameters():
         p.requires_grad = False
-    
+   
     # We score all of the generated samples in the training buffer. These are
     # by definition generated samples of the model. We score the samples
     # according to a specified output target sequence. The sequence could be

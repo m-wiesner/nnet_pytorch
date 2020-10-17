@@ -8,17 +8,17 @@ unlabeled_data=/export/corpora5 #/PATH/TO/LIBRISPEECH/data
 . ./cmd.sh
 . ./path.sh
 
-stage=0
+stage=1
 subsampling=4
 traindir=data/train_100h
-feat_affix=_fbank
-chaindir=exp/chain_wrn
+feat_affix=_fbank_64
+chaindir=exp/chain
 model_dirname=wrn_semisup
-batches_per_epoch=100
+batches_per_epoch=250
 num_epochs=240
 train_nj=2
 resume=
-num_split=20 # number of splits for memory-mapped data for training
+num_split=80 # number of splits for memory-mapped data for training
 . ./utils/parse_options.sh
 
 if [ $# -ne 1 ]; then
@@ -43,7 +43,7 @@ if [ $stage -le 0 ]; then
   done 
 
   ./utils/combine_data.sh data/train_860 data/train_{clean_360,other_500}
-  ./steps/make_fbank.sh --cmd "$train_cmd" --nj 32 data/train_860 exp/make_fbank/train_860 fbank
+  ./steps/make_fbank.sh --cmd "$train_cmd" --nj 32 data/train_860 exp/make_fbank/train_860 ${feat_affix##_}
   ./utils/fix_data_dir.sh data/train_860
   ./steps/compute_cmvn_stats.sh data/train_860
   ./utils/fix_data_dir.sh data/train_860
@@ -70,9 +70,9 @@ if [ $stage -eq 1 ]; then
     --model ChainWideResnet \
     --depth 28 \
     --width 10 \
-    --warmup 500 \
+    --warmup 0 \
     --decay 1e-05 \
-    --xent 0.1 \
+    --xent 0.01 \
     --l2 0.0001 \
     --weight-decay 1e-07 \
     --lr 0.00001 \
@@ -80,19 +80,20 @@ if [ $stage -eq 1 ]; then
     --num-epochs ${num_epochs} \
     --validation-spks 0 \
     --sgld-thresh 0 \
-    --sgld-reinit-p 0.05 \
-    --sgld-buffer 10000 \
+    --sgld-reinit-p 1.0 \
+    --sgld-buffer 32 \
     --sgld-stepsize 1.0 \
-    --sgld-steps 4 \
+    --sgld-steps 2 \
+    --sgld-max-steps 50 \
     --sgld-noise 0.001 \
     --sgld-decay 0.0 \
-    --sgld-warmup 500 \
-    --sgld-optim accsgld \
-    --sgld-replay-correction 0.5 \
+    --sgld-warmup 0 \
+    --sgld-optim adam \
+    --sgld-replay-correction 0.0 \
     --l2-energy 0.0001 \
-    --sgld-weight-decay 1e-10 \
+    --sgld-weight-decay 1e-03 \
     --delay-updates 2 \
-    --lfmmi-weight 1.0 \
+    --lfmmi-weight 0.1 \
     --ebm-weight 1.0 \
     --nj ${train_nj} \
     --init ${init} \
@@ -101,14 +102,14 @@ if [ $stage -eq 1 ]; then
     'data': '${traindir}${feat_affix}', \
     'tgt': '${targets}', \
     'batchsize': 32, 'chunk_width': 140, \
-    'left_context': 10, 'right_context': 5 \
+    'left_context': 10, 'right_context': 5, \
     'mean_norm': True, 'var_norm': 'norm' \
         },\
         {\
      'data': 'data/train_860', \
      'tgt': 'data/train_860/pdfid.${subsampling}.tgt', \
-     'batchsize': 16, 'chunk_width': 60, \
-     'left_context': 10, 'right_context': 5 \
+     'batchsize': 32, 'chunk_width': 30, \
+     'left_context': 10, 'right_context': 5, \
      'mean_norm': True, 'var_norm': 'norm' \
        },\
      ]" \

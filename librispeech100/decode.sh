@@ -17,8 +17,6 @@ decode_nj=80
 
 . ./utils/parse_options.sh
 
-set -euo pipefail
-
 tree=${chaindir}/tree
 post_decode_acwt=`echo ${acwt} | awk '{print 10*$1}'`
 
@@ -26,7 +24,7 @@ post_decode_acwt=`echo ${acwt} | awk '{print 10*$1}'`
 if [ $stage -le 0 ]; then
   if [ ! -f data/${testsets%% *}${feat_affix}/mapped/feats.dat.1 ]; then
     ./local/prepare_test.sh --subsampling ${subsampling} \
-      --testsets ${testsets} \
+      --testsets "${testsets}" \
       --subsampling ${subsampling} \
       --data ${speech_data} \
       --feat-affix ${feat_affix}

@@ -48,6 +48,7 @@ class SequenceEBMLoss(nn.Module):
         parser.add_argument('--sgld-optim', type=str, default='sgd')
         parser.add_argument('--sgld-replay-correction', type=float, default=1.0)
         parser.add_argument('--sgld-weight-decay', type=float, default=1e-05)
+        parser.add_argument('--sgld-max-steps', type=int, default=150)
 
     @classmethod
     def build_objective(cls, conf):
@@ -67,6 +68,7 @@ class SequenceEBMLoss(nn.Module):
             sgld_optim=conf['sgld_optim'],
             sgld_replay_correction=conf['sgld_replay_correction'],
             sgld_weight_decay=conf['sgld_weight_decay'],
+            sgld_max_steps=conf['sgld_max_steps'],
         )
 
     @classmethod
@@ -98,6 +100,7 @@ class SequenceEBMLoss(nn.Module):
         sgld_optim='sgd',
         sgld_replay_correction=1.0,
         sgld_weight_decay=1e-05,
+        sgld_max_steps=150,
     ):
         super(SequenceEBMLoss, self).__init__()
         self.den_graph = ChainGraph(
@@ -114,6 +117,7 @@ class SequenceEBMLoss(nn.Module):
             sgld_optim=sgld_optim,
             sgld_replay_correction=sgld_replay_correction,
             sgld_weight_decay=sgld_weight_decay,
+            sgld_max_steps=sgld_max_steps,
         )
         self.energy = Energy(self.den_graph)
         # All of this is scheduling the lfmmi weight
@@ -212,6 +216,31 @@ class SequenceEBMLoss(nn.Module):
         self.num_warmup_updates = state_dict['num_warmup_updates']
         self.num_decay_updates = state_dict['num_decay_updates']
 
-    def generate(self):
+    def generate_from_buffer(self):
         return self.sgld_sampler.buffer
+    
+    def generate_from_model(self, model,
+        bs=32, cw=65, dim=64, left_context=10, right_context=5, device='cpu',
+    ):
+        model.eval()
+        for p in model.parameters():
+            p.requires_grad = False
+
+        model_energy = partial(self.energy, model)
+        x = torch.FloatTensor(bs, cw, dim).uniform_(-1, 1) 
+        x = x.to(device)
+        return self.sgld_sampler.update_generator(
+            self.sgld_sampler.sample_like(
+                Samples(
+                    x, 
+                    {
+                        'left_context': left_context,
+                        'right_context': right_context
+                    }
+                )
+            ),
+            model_energy,
+            sample_energy=-100.0,
+        )
+
 

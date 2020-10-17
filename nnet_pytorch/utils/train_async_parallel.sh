@@ -61,6 +61,7 @@ l2=0.0001
 
 # Semisup
 sgld_steps=10
+sgld_max_steps=150
 sgld_buffer=10000
 sgld_reinit_p=0.05
 sgld_stepsize=1.0
@@ -76,8 +77,12 @@ sgld_weight_decay=1e-05
 sgld_optim=sgd
 l2_energy=0.0
 
+
 . ./utils/parse_options.sh
-if [ $# -ne 2 ] && [ $# -ne 3]; then
+
+echo "Num args: $#"
+
+if [ $# -ne 2 ] && [ $# -ne 3 ]; then
   echo "Usage: ./train_async_parallel.sh <datasets> [<validation-datasets>] <odir>"
   echo " --gpu ${gpu} --debug ${debug} --priors-only ${priors_only}"
   echo " --batches-per-epoch ${batches_per_epoch} --num-epochs ${num_epochs} --delay-updates ${delay_updates}"
@@ -91,9 +96,9 @@ if [ $# -ne 2 ] && [ $# -ne 3]; then
   if [[ $objective == "LFMMI" || $objective == "SemisupLFMMI" ]]; then
     echo " --xent ${xent} --l2 ${l2} --denom-graph ${denom_graph}"
   elif [[ $objective == "SemisupLFMMI" || $objective == "LFMMI_EBM" ]]; then
-    echo " --sgld-steps ${sgld_steps} --sgld-buffer ${sgld_buffer} --sgld-reinit-p ${sgld_reinit_p} --sgld-stepsize ${sgld_stepsize} --sgld-noise ${sgld_noise} --ebm-weight ${ebm_weight} --lfmmi-weight ${lfmmi_weight} --sgld-optim ${sgld_optim} --sgld-replay-correction ${sgld_replay_correction} --xent ${xent} --l2 ${l2} --denom-graph ${denom_graph} --l2-energy ${l2_energy} --sgld-warmup ${sgld_warmup} --sgld-decay ${sgld_decay} --sgld-thresh ${sgld_thresh} --sgld-weight-decay ${sgld_weight_decay}"
+    echo " --sgld-steps ${sgld_steps} --sgld-max-steps ${sgld_max_steps} --sgld-buffer ${sgld_buffer} --sgld-reinit-p ${sgld_reinit_p} --sgld-stepsize ${sgld_stepsize} --sgld-noise ${sgld_noise} --ebm-weight ${ebm_weight} --lfmmi-weight ${lfmmi_weight} --sgld-optim ${sgld_optim} --sgld-replay-correction ${sgld_replay_correction} --xent ${xent} --l2 ${l2} --denom-graph ${denom_graph} --l2-energy ${l2_energy} --sgld-warmup ${sgld_warmup} --sgld-decay ${sgld_decay} --sgld-thresh ${sgld_thresh} --sgld-weight-decay ${sgld_weight_decay}"
   elif [[ $objective == "CrossEntropy_EBM" ]]; then
-    echo " --sgld-steps ${sgld_steps} --sgld-buffer ${sgld_buffer} --sgld-reinit-p ${sgld_reinit_p} --sgld-stepsize ${sgld_stepsize} --sgld-noise ${sgld_noise} --ebm-weight ${ebm_weight} --xent-weight ${xent_weight} --sgld-optim ${sgld_optim} --sgld-replay-correction ${sgld_replay_correction} --xent ${xent} --l2 ${l2} --denom-graph ${denom_graph} --l2-energy ${l2_energy} --sgld-warmup ${sgld_warmup} --sgld-decay ${sgld_decay} --sgld-thresh ${sgld_thresh} --sgld-weight-decay ${sgld_weight_decay}"
+    echo " --sgld-steps ${sgld_steps} --sgld-max-steps ${sgld_max_steps} --sgld-buffer ${sgld_buffer} --sgld-reinit-p ${sgld_reinit_p} --sgld-stepsize ${sgld_stepsize} --sgld-noise ${sgld_noise} --ebm-weight ${ebm_weight} --xent-weight ${xent_weight} --sgld-optim ${sgld_optim} --sgld-replay-correction ${sgld_replay_correction} --xent ${xent} --l2 ${l2} --denom-graph ${denom_graph} --l2-energy ${l2_energy} --sgld-warmup ${sgld_warmup} --sgld-decay ${sgld_decay} --sgld-thresh ${sgld_thresh} --sgld-weight-decay ${sgld_weight_decay}"
   fi
 
   exit 1; 
@@ -149,11 +154,11 @@ if [[ $objective = "LFMMI" || $objective = "SemisupLFMMI" ]]; then
 fi
 
 if [[ $objective = "SemisupLFMMI" || $objective = "LFMMI_EBM" ]]; then
-  obj_fun_opts="${obj_fun_opts} --sgld-steps ${sgld_steps} --sgld-buffer ${sgld_buffer} --sgld-reinit-p ${sgld_reinit_p} --sgld-stepsize ${sgld_stepsize} --sgld-noise ${sgld_noise} --ebm-weight ${ebm_weight} --lfmmi-weight ${lfmmi_weight} --denom-graph ${denom_graph} --l2-energy ${l2_energy} --sgld-warmup ${sgld_warmup} --sgld-decay ${sgld_decay} --sgld-thresh ${sgld_thresh} --sgld-replay-correction ${sgld_replay_correction} --sgld-optim ${sgld_optim} --sgld-weight-decay ${sgld_weight_decay}" 
+  obj_fun_opts="${obj_fun_opts} --sgld-steps ${sgld_steps} --sgld-max-steps ${sgld_max_steps} --sgld-buffer ${sgld_buffer} --sgld-reinit-p ${sgld_reinit_p} --sgld-stepsize ${sgld_stepsize} --sgld-noise ${sgld_noise} --ebm-weight ${ebm_weight} --lfmmi-weight ${lfmmi_weight} --denom-graph ${denom_graph} --l2-energy ${l2_energy} --sgld-warmup ${sgld_warmup} --sgld-decay ${sgld_decay} --sgld-thresh ${sgld_thresh} --sgld-replay-correction ${sgld_replay_correction} --sgld-optim ${sgld_optim} --sgld-weight-decay ${sgld_weight_decay}" 
 fi
 
 if [[ $objective = "CrossEntropy_EBM" ]]; then
-  obj_fun_opts="${obj_fun_opts} --sgld-steps ${sgld_steps} --sgld-buffer ${sgld_buffer} --sgld-reinit-p ${sgld_reinit_p} --sgld-stepsize ${sgld_stepsize} --sgld-noise ${sgld_noise} --ebm-weight ${ebm_weight} --xent-weight ${xent_weight} --l2-energy ${l2_energy} --sgld-warmup ${sgld_warmup} --sgld-decay ${sgld_decay} --sgld-thresh ${sgld_thresh} --sgld-replay-correction ${sgld_replay_correction} --sgld-optim ${sgld_optim} --sgld-weight-decay ${sgld_weight_decay}" 
+  obj_fun_opts="${obj_fun_opts} --sgld-steps ${sgld_steps} --sgld-max-steps ${sgld_max_steps} --sgld-buffer ${sgld_buffer} --sgld-reinit-p ${sgld_reinit_p} --sgld-stepsize ${sgld_stepsize} --sgld-noise ${sgld_noise} --ebm-weight ${ebm_weight} --xent-weight ${xent_weight} --l2-energy ${l2_energy} --sgld-warmup ${sgld_warmup} --sgld-decay ${sgld_decay} --sgld-thresh ${sgld_thresh} --sgld-replay-correction ${sgld_replay_correction} --sgld-optim ${sgld_optim} --sgld-weight-decay ${sgld_weight_decay}" 
 fi
 
 # Model options
