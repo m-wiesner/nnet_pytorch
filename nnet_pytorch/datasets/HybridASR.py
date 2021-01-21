@@ -17,11 +17,12 @@ class HybridAsrDataset(NnetPytorchDataset):
 
     @staticmethod
     def add_args(parser):
-        parser.add_argument('--perturb-type', type=str, default='none')
         parser.add_argument('--utt-subset', default=None)
 
     @classmethod
     def build_dataset(cls, ds):
+        perturb_type = ds.get('perturb_type', 'none')
+        
         return HybridAsrDataset(
             ds['data'], ds['tgt'],
             left_context=ds['left_context'],
@@ -29,14 +30,15 @@ class HybridAsrDataset(NnetPytorchDataset):
             chunk_width=ds['chunk_width'],
             batchsize=ds['batchsize'],
             subsample=ds['subsample'],
-            mean=ds['mean_norm'], var=['var_norm'],
-            utt_subset=ds['utt_subset']
+            mean=ds['mean_norm'], var=ds['var_norm'],
+            utt_subset=ds['utt_subset'],
+            perturb_type=perturb_type,
         )
     
     def __init__(self, datadir, targets,
         dtype=np.float32, memmap_affix='.dat',
         left_context=10, right_context=3, chunk_width=1,
-        batchsize=128, mean=True, var='norm',
+        batchsize=128, mean=True, var=True,
         utt_subset=None, subsample=1,
         perturb_type='none',
     ):
@@ -75,7 +77,6 @@ class HybridAsrDataset(NnetPytorchDataset):
                 data_shape.append(data_shape_n)
        
         # Creates 1 file pointer per memmap split   
-        print(dtype)
         self.data = [
             np.memmap(
                 "{}.{}".format(self.data_path, n),
@@ -194,7 +195,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         }
         return HybridAsrDataset.Minibatch(x, target, metadata)
 
-    def apply_cmvn(self, x, utt_name, mean=False, var='norm', max_val=32.0, min_val=-16.0):
+    def apply_cmvn(self, x, utt_name, mean=False, var=True):
         '''
             Apply the speaker-level cmvn to each window (x).
         '''
@@ -205,11 +206,9 @@ class HybridAsrDataset(NnetPytorchDataset):
         else:
             x_ = x
         
-        if var == 'var':
+        if var:
             x_ = x_ / np.sqrt(self.spk2cmvn[self.utt2spk[utt_name]]['var'])
-        elif var == 'norm':
-            x_ = x_ / (max_val - min_val)
-             
+        
         return x_
 
     def __len__(self):
@@ -248,15 +247,9 @@ class HybridAsrDataset(NnetPytorchDataset):
             split.append(split_idx)
             sample = self[(split_idx, utt_idx, idx + utt_offset)]
             name.append(sample.metadata['name'])
-        
-            perturb_type = 'none'   
-            if sample.target[0] == -1:
-                perturb_type = 'gauss'
-         
-            input_tensor[size, :, :] = perturb(
-                torch.from_numpy(sample.input),
-                perturb_type=perturb_type,
-            )
+            input_size = torch.from_numpy(sample.input)
+            perturb(input_size, perturb_type=self.perturb_type)
+            input_tensor[size, :, :] = input_size 
             output[size, :] = torch.LongTensor(sample.target)
 
             size += self.size(idx)
@@ -295,6 +288,8 @@ class HybridAsrDataset(NnetPytorchDataset):
                         'right_context': self.right_context,
                     }
                     input_tensor = torch.tensor(inputs, dtype=torch.float32) 
+                    perturb(input_tensor, perturb_type=self.perturb_type)
+                    
                     output_tensor = torch.LongTensor(output)
                     yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
                     i = 0
@@ -308,6 +303,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                     'right_context': self.right_context,
                 }
                 input_tensor = torch.tensor(inputs, dtype=torch.float32) 
+                perturb(input_tensor, perturb_type=self.perturb_type)
                 output_tensor = torch.LongTensor(output)
                 yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
                 self.closure(set(split))

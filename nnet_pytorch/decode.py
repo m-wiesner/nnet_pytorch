@@ -72,7 +72,7 @@ def main():
    
     # Load the state priors (For x-ent only systems)
     priors = 0.0
-    if 'LFMMI' not in conf['objective']:
+    if 'CrossEntropy' in conf['objective']:
         priors = json.load(open(os.path.join(args.modeldir, args.prior_name)))
         priors = np.array(priors)
     

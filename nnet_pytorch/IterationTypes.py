@@ -7,12 +7,17 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import datasets
+import sys
 
 
 def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'):
     total_loss = 0.0
-    num_datasets = len(eval(args.datasets))
     move_to = datasets.DATASETS[args.datasetname].move_to
+    dataset_args = eval(args.datasets)
+    total_num_batches = sum(
+        [args.batches_per_epoch * ds['num_repeats'] for ds in dataset_args]
+    )
+    total_num_updates = total_num_batches // args.delay_updates 
     
     for i, b in enumerate(generator, 1): 
         b = move_to(b, device)
@@ -20,7 +25,7 @@ def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'
         if isinstance(loss, int):
             continue;
         print(
-            "Iter: ", i, " of ", args.batches_per_epoch * num_datasets,
+            "Iter: ", int(i / args.delay_updates), " of ", total_num_updates,
             "Loss: ", loss.data.item(),
             "LR: ", lr_sched.curr_lr, end=' '    
         )
@@ -29,13 +34,14 @@ def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'
         print()
         total_loss += loss.data.item()
         loss.backward()
-        loss.detach() 
+        loss.detach()
+        del b
         # Mimics multigpu training with large batches on a single gpu
         if ((i % args.delay_updates) == 0):
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_thresh)
             optim.step()
             optim.zero_grad()
-            lr_sched.step(1.0 / num_datasets) 
+            lr_sched.step(1.0) 
     return total_loss / args.batches_per_epoch
 
 
@@ -80,6 +86,37 @@ def decode_dataset(args, generator, model, device='cpu'):
             ).view(-1, model_output[0].size(-1))
 
         yield uttname, lprobs.detach().cpu().numpy()
+
+
+def decode_dataset(args, generator, model, device='cpu'):
+    move_to = datasets.DATASETS[args.datasetname].move_to 
+    for i, b in enumerate(generator):
+        uttname = b.metadata['name'][0]
+        b = move_to(b, device)
+        model_output = model(b)
+        # Chain system
+        if 'CrossEntropy' not in args.objective:
+            output = model_output[0].clamp(-30, 30)
+            lprobs = output.contiguous().view(-1, output.size(2))
+        ## XENT
+        elif 'CrossEntropy' in args.objective:
+            lprobs = F.log_softmax(
+                model_output[0], dim=-1
+            ).view(-1, model_output[0].size(-1))
+        else:
+            print("Undefined Objective")
+            sys.exit(1)
+
+        yield uttname, lprobs.detach().cpu().numpy()
+
+
+def decorrupt_dataset(args, generator, model, objective, device='cpu'):
+    move_to = datasets.DATASETS[args.datasetname].move_to 
+    for i, b in enumerate(generator):
+        uttname = b.metadata['name'][0]
+        b = move_to(b, device)
+        for sgld_iter, decorrupted in enumerate(objective.decorrupt(model, b, num_steps=args.num_steps)):
+            yield uttname, sgld_iter, decorrupted.contiguous().view(-1, decorrupted.size(2)).detach().cpu().numpy()
 
 
 def evaluate_energies(args, generator, model, device='cpu'):

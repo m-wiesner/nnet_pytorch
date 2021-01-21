@@ -38,7 +38,17 @@ def main():
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    # Resume training / dump training configurations
+    # Create the conf file if it doesn't exist
+    if not os.path.exists('{}/conf.{}.json'.format(args.expdir, args.job)):
+        json.dump(
+            vars(args),
+            open('{}/conf.{}.json'.format(args.expdir, args.job), 'w'),
+            indent=4, separators=(',', ': ')
+        )
+        conf = vars(args)
+        conf['epoch'] = 0 
+
+    # Resume training with same configuration / dump training configurations
     if args.resume is not None:
         print("Loading former training configurations ...")
         conf = json.load(
@@ -47,7 +57,8 @@ def main():
         if conf['objective'] in ('SemisupLFMMI', 'LFMMI_EBM'):
             conf['l2_energy'] = args.l2_energy 
     else:
-        # Dump training configurations
+        # Dump training configurations when resuming but the conf file already
+        # existing, i.e. from a previous training run.
         json.dump(
             vars(args),
             open('{}/conf.{}.json'.format(args.expdir, args.job), 'w'),
@@ -62,8 +73,10 @@ def main():
     dataset_args = eval(args.datasets)
     for ds in dataset_args:
         ds.update({'subsample': args.subsample, 'utt_subset': None})
-        datasets_list.append(
-            datasets.DATASETS[args.datasetname].build_dataset(ds)
+        datasets_list.extend(
+            [
+                datasets.DATASETS[args.datasetname].build_dataset(ds)
+            ] * ds['num_repeats']
         )
 
     # Define model
@@ -72,6 +85,16 @@ def main():
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("Traning model with ", total_params, " parameters.")
     objective = objectives.OBJECTIVES[args.objective].build_objective(conf)
+
+    if args.resume is not None:
+        print("Resuming ...")
+        # Loads state dict
+        mdl = torch.load(
+            os.path.sep.join([args.expdir, args.resume]),
+            map_location='cpu'
+        )
+        model.load_state_dict(mdl['model'])   
+        objective.load_state_dict(mdl['objective'])
 
     # Send model and objective function to GPU (or keep on CPU)
     model.to(device)
@@ -93,21 +116,19 @@ def main():
     }
     
     optimizer = optimizers[conf['optim']]
-    lr_sched = LRScheduler(optimizer, args)
    
     # Check if training is resuming from a previous epoch 
     if args.resume is not None:
-        print("Resuming ...")
-        mdl = torch.load(
-            os.path.sep.join([args.expdir, args.resume]),
-            map_location=device
-        )
-        model.load_state_dict(mdl['model'])   
-        objective.load_state_dict(mdl['objective'])
         optimizer.load_state_dict(mdl['optimizer'])
+        for state in optimizer.state.values():
+            for k, v in state.items():
+                if torch.is_tensor(v):
+                    state[k] = v.to(device) 
+        lr_sched = LRScheduler(optimizer, args)
         lr_sched.load_state_dict(mdl['lr_sched'])
         conf['epoch'] = mdl['epoch']
     else:
+        lr_sched = LRScheduler(optimizer, args)
         # Get priors if we are not resuming
         if args.objective == 'CrossEntropy':
             get_priors(args, datasets_list[0])
@@ -256,6 +277,8 @@ def parse_arguments():
             'SemisupLFMMI',
             'LFMMI_EBM',
             'CrossEntropy_EBM',
+            'LFMMI_MCE',
+            'SemisupMCE',
         ],
     )
     parser.add_argument('--subsample', type=int, default=3)

@@ -142,11 +142,11 @@ def load_utt_subset(f):
 
 def perturb(x, perturb_type='none'):
     if perturb_type == 'none':
-        return x
+        pass
     elif perturb_type == 'salt_pepper':
         x *= torch.FloatTensor(x.size()).random_(0, 2).to(x.dtype)
     elif perturb_type == 'time_mask':
-        width=20
+        width=4
         start = random.randint(0, x.size(1) - width)
         end = start + width
         mask = (torch.arange(x.size(1)) >= start) * (torch.arange(x.size(1)) < end)  
@@ -159,6 +159,10 @@ def perturb(x, perturb_type='none'):
         mask = (torch.arange(x.size(-1)) >= start) * (torch.arange(x.size(-1)) < end)  
         mask = mask[None, :].expand(x.size())
         x[mask] = 0.0 
-    elif perturb_type == 'gauss':
-        x += 0.0001 * torch.randn_like(x) 
-    return x 
+    elif perturb_type.startswith('gauss'):
+        std = float(perturb_type.split()[1])
+        x += std * torch.randn_like(x)
+    elif perturb_type.startswith('rand'):
+        maxval = float(perturb_type.split()[1])
+        x.uniform_(-maxval, maxval)
+    #return x 

@@ -50,8 +50,8 @@ class AcceleratedSGLD(Optimizer):
     """
 
     def __init__(self, params, finalval, lr=required, momentum=0, dampening=0,
-        weight_decay=0, nesterov=False, clamp=1.0, stepscale=1.0, noise=0.005,
-        rel_overshoot=0.1,
+        weight_decay=0, nesterov=False, stepscale=1.0, noise=0.005,
+        rel_overshoot=0.1, epsilon=0.00005,
     ):
         if lr is not required and lr < 0.0:
             raise ValueError("Invalid learning rate: {}".format(lr))
@@ -67,14 +67,12 @@ class AcceleratedSGLD(Optimizer):
         super(AcceleratedSGLD, self).__init__(params, defaults)
         self.noise = noise
         self.stepscale = stepscale
-        self.clamp = clamp
-        # Shoot for 5% better (helps with gradient)
+        # Shoot for 10% better (helps with gradient)
         if finalval >= 0:
             self.final_val = finalval * (1 - rel_overshoot)
         else:
             self.final_val = finalval * (1 + rel_overshoot)
-        self.prev_val = None
-        self.epsilon = 1e-4
+        self.epsilon = epsilon
 
     def __setstate__(self, state):
         super(SGD, self).__setstate__(state)
@@ -92,23 +90,22 @@ class AcceleratedSGLD(Optimizer):
                 and returns the loss.
         """
         loss = None
-        self.prev_val = startval
         for group in self.param_groups:
             weight_decay = group['weight_decay']
             for p in group['params']:
                 if p.grad is None:
                     continue
-                grad_norm = (p.grad.data ** 2.0).sum()
-                print("Grad Norm: ", grad_norm.data.item())
+                grad_norm = max(self.epsilon, (p.grad.data ** 2.0).sum())
+                #print("Grad Norm: ", grad_norm.data.item())
                 if grad_norm <= self.epsilon:
                     print("Small Grad Norm!!")
                     grad_norm = self.epsilon
                 #opt_lr = abs(self.final_val - startval)/grad_norm
                 opt_lr = (self.final_val - startval)/grad_norm
-                print("Final Value: ", self.final_val, " -- Opt LR: ", opt_lr)
+                #print("Final Value: ", self.final_val, " -- Opt LR: ", opt_lr)
                 # When we are below the requested value, we can just descend at
                 # at a normal pace ...
-                opt_lr = (self.epsilon / grad_norm) if opt_lr > 0 else -opt_lr
+                opt_lr = self.epsilon / grad_norm if opt_lr > 0 else -opt_lr
                 d_p = p.grad.data
                 if weight_decay != 0:
                     d_p.add_(p.data, alpha=weight_decay)

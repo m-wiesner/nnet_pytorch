@@ -20,6 +20,7 @@ class ChainLoss(nn.Module):
             conf['denom_graph'],
             xent_reg=conf['xent_reg'],
             l2_reg=conf['l2_reg'],
+            leaky_hmm=conf.get('leaky_hmm', 0.1),
         )
 
     @classmethod
@@ -28,10 +29,10 @@ class ChainLoss(nn.Module):
 
     def __init__(
         self, den_graph,
-        xent_reg=0.2, l2_reg=0.00025, avg=True,
+        xent_reg=0.2, l2_reg=0.00025, avg=True, leaky_hmm=0.1,
     ):
         super(ChainLoss, self).__init__()
-        self.lfmmi = LFMMI(den_graph)  
+        self.lfmmi = LFMMI(den_graph, leaky_hmm=leaky_hmm)  
         self.xent = CrossEntropy()
         self.l2 = L2()
         

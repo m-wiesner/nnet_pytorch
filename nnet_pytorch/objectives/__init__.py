@@ -21,7 +21,9 @@ OBJECTIVES = {
     'SemisupLFMMI': SemisupLFMMI.ChainLoss,
     'LFMMI_EBM': LFMMI_EBM.SequenceEBMLoss,
     'CrossEntropy_EBM': CrossEntropy_EBM.EBMLoss,
-    'LFMMINum': LFMMIOnly.NumeratorFunction
+    'LFMMINum': LFMMIOnly.NumeratorFunction,
+    'LFMMI_MCE': LFMMI_MCE.MCELoss,
+    'SemisupMCE': SemisupMCE.ChainLoss,
 }
 
 def build_objective(objectivename, conf):

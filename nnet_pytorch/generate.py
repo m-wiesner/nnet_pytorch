@@ -57,11 +57,12 @@ def main():
         cw=cw,
         dim=args.idim,
         left_context=args.left_context, right_context=args.right_context,
-        device=device
+        device=device,
+        target=args.target,
     )
 
     for i, s in enumerate(samples):
-        np.save('{}/samples.{}'.format(args.dumpdir, i), s)
+        np.save('{}/samples.{}'.format(args.dumpdir, i), s.cpu().data.numpy())
 
 
 def parse_arguments():
@@ -88,6 +89,7 @@ def parse_arguments():
     parser.add_argument('--batchsize', type=int, default=32,
         help='number of sample to generate (just 1 minibatch)',
     )
+    parser.add_argument('--target', nargs='+', type=int, default=None)
    
     # Args specific to different components
     args, leftover = parser.parse_known_args()

@@ -12,7 +12,10 @@ num_leaves=3500
 model_dirname=wrn
 batches_per_epoch=250
 num_epochs=240
-train_nj=2
+train_nj_init=1
+train_nj_final=4
+perturb="gauss 0.1"
+leaky_hmm=0.1
 resume=
 num_split=20 # number of splits for memory-mapped data for training
 average=true
@@ -78,18 +81,20 @@ if [ $stage -le 3 ]; then
     --decay 1e-05 \
     --xent 0.1 \
     --l2 0.0001 \
+    --leaky-hmm ${leaky_hmm} \
     --weight-decay 1e-07 \
-    --lr 0.0002 \
+    --lr 0.0001 \
     --batches-per-epoch ${batches_per_epoch} \
     --num-epochs ${num_epochs} \
-    --nj ${train_nj} \
+    --nj-init ${train_nj_init} \
+    --nj-final ${train_nj_final} \
     "[ \
         {\
     'data': '${traindir}${feat_affix}', \
     'tgt': '${targets}', \
     'batchsize': 32, 'chunk_width': 140, \
-    'left_context': 10, 'right_context': 5, \
-    'mean_norm': True, 'var_norm': 'norm'
+    'left_context': 10, 'right_context': 5, 'num_repeats': 1, \
+    'mean_norm': True, 'var_norm': True, 'perturb_type': '${perturb}'
         }\
      ]" \
     `dirname ${chaindir}`/${model_dirname}

@@ -17,10 +17,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('idir')
     parser.add_argument('ogif')
-    parser.add_argument('index', type=int)
+    parser.add_argument('name', type=str)
     args = parser.parse_args()
 
-    files = glob.glob(args.idir + "/samples*.npy")
+    files = glob.glob('{}/{}.*.npy'.format(args.idir, args.name))
     files = sorted(files, key=lambda x : int(x.split('.')[-2]))
 
     images = []
@@ -28,7 +28,7 @@ def main():
         fname = os.path.basename(f)
         print(fname)
         out = np.load(f)
-        plt.imshow(np.flipud(out[args.index, :, :].T))
+        plt.imshow(np.flipud(out.T))
         plt.colorbar()
         plt.savefig(args.idir + "/" + fname + ".png")
         images.append(imageio.imread(args.idir + "/" + fname + ".png"))

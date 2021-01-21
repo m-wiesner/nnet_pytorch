@@ -113,9 +113,9 @@ class SGLDAdam(Optimizer):
 
                 step_size = group['lr'] / bias_correction1
                 replay_correction = numsteps[:, None, None] ** self.stepscale
-                langevin_std = 1.0 / replay_correction
+                langevin_std = 1.0 #/ replay_correction
                 
                 p.add_(self.langevin_noise(p.data, std=langevin_std))
-                p.addcdiv_(exp_avg, denom, value=-step_size)
+                p.addcdiv_(exp_avg, denom.mul_(replay_correction), value=-step_size)
 
         return loss

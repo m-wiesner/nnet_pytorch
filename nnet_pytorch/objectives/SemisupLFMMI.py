@@ -9,7 +9,6 @@ from .LFMMI_EBM import SequenceEBMLoss as SeqEBM
 class ChainLoss(nn.Module):
     @staticmethod
     def add_args(parser):
-        parser.add_argument('--unsup-weight', type=float, default=1.0)
         parser.add_argument('--xent-reg', type=float, default=0.2)
         parser.add_argument('--l2-reg', type=float, default=0.00025)
         for m in [L2, CrossEntropy, SeqEBM]:
@@ -20,7 +19,6 @@ class ChainLoss(nn.Module):
         seq_ebm = SeqEBM.build_objective(conf)
         return ChainLoss(
             seq_ebm,
-            unsup_weight=conf['unsup_weight'],
             xent_reg=conf['xent_reg'],
             l2_reg=conf['l2_reg'],
         )
@@ -34,7 +32,7 @@ class ChainLoss(nn.Module):
         }
 
     def __init__(
-        self, seq_ebm, xent_reg=0.2, l2_reg=0.00025, unsup_weight=1.0,
+        self, seq_ebm, xent_reg=0.2, l2_reg=0.00025,
     ):
         super(ChainLoss, self).__init__()
         self.seq_ebm = seq_ebm
@@ -43,7 +41,6 @@ class ChainLoss(nn.Module):
         
         self.l2_reg = l2_reg
         self.xent_reg = xent_reg
-        self.unsup_weight = unsup_weight
 
     def forward(self, model, sample):
         is_unsup = sample.target[0, 0] == -1 
@@ -98,5 +95,7 @@ class ChainLoss(nn.Module):
     def generate_from_model(self, model, **kwargs):
         return self.seq_ebm.generate_from_model(model, **kwargs)
 
+    def decorrupt(self, model, sample, num_steps=None):
+        return self.seq_ebm.decorrupt(model, sample, num_steps)
   
     

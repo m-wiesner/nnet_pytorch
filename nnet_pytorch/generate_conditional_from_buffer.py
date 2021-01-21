@@ -30,7 +30,7 @@ def main():
     if args.gpu: 
         # USER will need to set CUDA_VISIBLE_DEVICES here
         cvd = subprocess.check_output(["/usr/local/bin/free-gpu", "-n", "1"]).decode().strip()
-        os.environ['CUDA_VISIBILE_DEVICES'] = cvd
+        os.environ['CUDA_VISIBLE_DEVICES'] = cvd
     
     device = torch.device('cuda' if args.gpu else 'cpu')
     reserve_variable = torch.ones(1).to(device)
@@ -64,8 +64,15 @@ def main():
         'right_context': args.right_context,
     }
     obj = objectives.OBJECTIVES['LFMMINum']
-    target = torch.LongTensor(args.batchsize*[args.target])
-    
+    if args.target is not None:
+        target = torch.LongTensor(args.batchsize*[args.target])
+    else:
+        target = -1
+        for i in range(args.top_k):
+            idx = random.randint(0, buff.size(0) - 1)
+            np.save(args.dumpdir + '/example_' + str(i), buff[idx].data.cpu().numpy())
+        sys.exit()
+
     # Start the sampling
     model.eval()
     for p in model.parameters():

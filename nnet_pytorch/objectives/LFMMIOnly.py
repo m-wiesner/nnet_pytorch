@@ -15,19 +15,13 @@ from .pychain.pychain.chain import ChainFunction
 class NumeratorFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, targets):
-        input = input.clamp(-30, 30).exp()
+        input = input.clamp(-30, 30)
+        output = input.gather(2, targets.unsqueeze(2)).sum()
         B = input.size(0)
         num_grad = torch.zeros_like(input)
         num_grad.scatter_(2, targets.unsqueeze(2), 1.0) 
         ctx.save_for_backward(num_grad)
-        acoustic_cost = sum(
-            [
-                input[i, t, targets[i, t]]
-                    for i in range(input.size(0))
-                        for t in range(input.size(1))
-            ]
-        )
-        return acoustic_cost
+        return output 
 
     @staticmethod
     def backward(ctx, objf_grad):
@@ -40,24 +34,27 @@ class ChainLoss(nn.Module):
     @staticmethod
     def add_args(parser):
         parser.add_argument('--denom-graph', required=True)
+        parser.add_argument('--leaky-hmm', type=float, default=0.1)
     
     @classmethod
     def build_objective(cls, conf):
         return ChainLoss(
             conf['denom_graph'],
-            conf['num_targets'],
+            avg=True, 
+            leaky_hmm=conf.get('leaky_hmm', 0.1)
         )
 
     @classmethod
     def add_state_dict(cls, s1, s2, fraction, iteration=None):
         return s1 
     
-    def __init__(self, den_graph, avg=True):
+    def __init__(self, den_graph, avg=True, leaky_hmm=0.1):
         super(ChainLoss, self).__init__()
         self.den_graph = ChainGraph(
             fst=simplefst.StdVectorFst.read(den_graph),
         )
         self.avg = avg
+        self.leaky_hmm = leaky_hmm
 
     def forward(self, model, sample, precomputed=None):
         B = sample.input.size(0) # batchsize
@@ -71,7 +68,7 @@ class ChainLoss(nn.Module):
         
         T = x.size(1) # Length
         x_lengths = torch.LongTensor([T] * B).to(x.device)
-        den_objf = ChainFunction.apply(x, x_lengths, den_graphs, 0.1)   
+        den_objf = ChainFunction.apply(x, x_lengths, den_graphs, self.leaky_hmm) 
         num_objf = NumeratorFunction.apply(x, sample.target)
         loss = -(num_objf - den_objf)
         if self.avg:

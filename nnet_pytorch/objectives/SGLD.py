@@ -109,7 +109,7 @@ class SGLD(Optimizer):
                     else:
                         d_p = buf
                 replay_correction = numsteps[:, None, None] ** self.stepscale
-                langevin_std = 1.0 / replay_correction
+                langevin_std = 1.0 #/ replay_correction
                 p.data.add_(
                     self.langevin_noise(p.data, std=langevin_std).add_(
                         d_p.div_(replay_correction),
