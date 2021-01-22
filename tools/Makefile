@@ -12,6 +12,7 @@ OPENFST_COMFIGURE ?= --enable-static --enable-shared --enable-ngram-fsts
 
 CPPFLAGS ?= -D_GLIBCXX_USE_CXX11_ABI=0
 CXXFLAGS ?= -D_GLIBCXX_USE_CXX11_ABI=0
+CONDA_ACTIVATE=source $$(conda info --base)/etc/profile.d/conda.sh ; conda activate ; conda activate
 
 all: kaldi pychain
 
@@ -20,9 +21,10 @@ kaldi:
 	cd kaldi/tools; $(MAKE) all
 	cd kaldi/src; ./configure --shared; $(MAKE) depend; $(MAKE) all
 
-venv: requirements.txt
-	test -d NeurIPS2020 || python3 -m venv NeurIPS2020
-	. ./NeurIPS2020/bin/activate; pip install -r requirements.txt
+venv:
+	conda create --name nnet_pytorch_env python=3.7
+	conda init bash
+	$(CONDA_ACTIVATE) nnet_pytorch_env; pip install torch; pip install numpy; pip install kaldi_io
 
 clean: openfst_cleaned
 	rm -rf pychain
@@ -67,7 +69,7 @@ openfst-$(OPENFST_VERSION).tar.gz:
 
 .PHONY: pychain
 pychain: openfst venv
-	test -d ../nnet_pytorch/objectives/pychain || . ./NeurIPS2020/bin/activate && \
+	test -d ../nnet_pytorch/objectives/pychain || $(CONDA_ACTIVATE) nnet_pytorch_env && \
 	export OPENFST_PATH=`pwd`/openfst && \
 	export LD_LIBRARY_PATH=`pwd`/openfst/lib:$$LD_LIBRARY_PATH && \
 	export PATH=$(PYTHON_DIR):$$PATH && \
