@@ -10,10 +10,10 @@ index 890d65b..84a54e6 100644
  from .graph import *
 diff --git a/pychain/chain.py b/pychain/chain.py
 new file mode 100644
-index 0000000..17c0b64
+index 0000000..20ada53
 --- /dev/null
 +++ b/pychain/chain.py
-@@ -0,0 +1,83 @@
+@@ -0,0 +1,84 @@
 +# Copyright       2019 Yiwen Shao
 +#                 2020 Yiming Wang
 +
@@ -46,11 +46,12 @@ index 0000000..17c0b64
 +                "input batch size ({}) does not equal to graph batch size ({})"
 +                .format(B, graphs.batch_size)
 +            )
++        
++        input_lengths = input_lengths.cpu()
 +        packed_data = torch.nn.utils.rnn.pack_padded_sequence(
 +            input, input_lengths, batch_first=True,
 +        )
 +        batch_sizes = packed_data.batch_sizes
-+        input_lengths = input_lengths.cpu()
 +        if not graphs.log_domain:  # usually for the denominator
 +            exp_input = input.exp()
 +            objf, input_grad, ok = pychain_C.forward_backward(
