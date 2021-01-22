@@ -95,7 +95,7 @@ Installation:
 
 make all
 
-This will install kaldi, pychain, openfst, and set up a virtual environment
+This will install kaldi, pychain, openfst, and set up a conda virtual environment
 
 To run experiments, users will have to modify a few files.
 

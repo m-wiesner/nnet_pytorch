@@ -1,4 +1,3 @@
-PYTHON_DIR = `pwd`/NeurIPS2020/bin
 CXX ?= g++
 
 WGET ?= wget
@@ -12,7 +11,6 @@ OPENFST_COMFIGURE ?= --enable-static --enable-shared --enable-ngram-fsts
 
 CPPFLAGS ?= -D_GLIBCXX_USE_CXX11_ABI=0
 CXXFLAGS ?= -D_GLIBCXX_USE_CXX11_ABI=0
-CONDA_ACTIVATE=source $$(conda info --base)/etc/profile.d/conda.sh ; conda activate ; conda activate
 
 all: kaldi pychain
 
@@ -22,9 +20,8 @@ kaldi:
 	cd kaldi/src; ./configure --shared; $(MAKE) depend; $(MAKE) all
 
 venv:
-	conda create --name nnet_pytorch_env python=3.7
-	conda init bash
-	$(CONDA_ACTIVATE) nnet_pytorch_env; pip install torch; pip install numpy; pip install kaldi_io
+	test -d anaconda || ./setup_anaconda.sh anaconda nnet_pytorch_env 3.7 
+	. ./activate_python.sh; python3 -m pip install torch; python3 -m pip install numpy; python3 -m pip install kaldi_io
 
 clean: openfst_cleaned
 	rm -rf pychain
@@ -69,10 +66,10 @@ openfst-$(OPENFST_VERSION).tar.gz:
 
 .PHONY: pychain
 pychain: openfst venv
-	test -d ../nnet_pytorch/objectives/pychain || $(CONDA_ACTIVATE) nnet_pytorch_env && \
+	test -d ../nnet_pytorch/objectives/pychain || . ./activate_python.sh  && \
 	export OPENFST_PATH=`pwd`/openfst && \
 	export LD_LIBRARY_PATH=`pwd`/openfst/lib:$$LD_LIBRARY_PATH && \
-	export PATH=$(PYTHON_DIR):$$PATH && \
+	export PATH=$$PWD/anaconda/envs/nnet_pytorch_env/bin:$$PATH && \
 	cd ../nnet_pytorch/objectives && \
 	git clone --single-branch --branch master https://github.com/YiwenShaoStephen/pychain.git && cd pychain && \
 	cp ../../../tools/pychain_patch.diff . && \

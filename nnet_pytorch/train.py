@@ -277,8 +277,6 @@ def parse_arguments():
             'SemisupLFMMI',
             'LFMMI_EBM',
             'CrossEntropy_EBM',
-            'LFMMI_MCE',
-            'SemisupMCE',
         ],
     )
     parser.add_argument('--subsample', type=int, default=3)
