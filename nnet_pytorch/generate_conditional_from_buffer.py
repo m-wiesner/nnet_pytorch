@@ -16,7 +16,6 @@ import kaldi_io
 import objectives
 from functools import partial
 from collections import namedtuple
-from data_utils import move_to
 
 
 Samples = namedtuple('Samples', ['input', 'target', 'metadata']) 
@@ -86,7 +85,7 @@ def main():
     for i in range(0, len(buff), args.batchsize):
         print("Iter: ", i)
         x = buff[i:i+args.batchsize]
-        sample = move_to(Samples(x, target, metadata), device)
+        sample = Samples(x.to(device), target.to(device), metadata)
         model_output = model(sample)
         targets = sample.target
         acoustic_costs = [
