@@ -79,7 +79,7 @@ def forward(args, dataset, model, device='cpu'):
     model.eval()
     with torch.no_grad():
         generator = batches(args.num_samples, dataset)
-        for i, v in enumerate(evaluate_energies(args, generator, model, device=device))
+        for i, v in enumerate(evaluate_energies(args, generator, model, device=device)):
             np.save('{}/embeddings.{}'.format(args.dumpdir, str(i)), v.cpu().numpy())
 
 
