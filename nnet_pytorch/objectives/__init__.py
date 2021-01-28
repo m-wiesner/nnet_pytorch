@@ -22,6 +22,7 @@ OBJECTIVES = {
     'LFMMI_EBM': LFMMI_EBM.SequenceEBMLoss,
     'CrossEntropy_EBM': CrossEntropy_EBM.EBMLoss,
     'LFMMINum': LFMMIOnly.NumeratorFunction,
+    'InfoNCE': InfoNCEOnly.InfoNCELoss,
 }
 
 def build_objective(objectivename, conf):

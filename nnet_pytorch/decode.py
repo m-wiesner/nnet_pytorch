@@ -56,6 +56,10 @@ def main():
             'utt_subset': args.utt_subset,
         }
     )
+    if args.perturb is not None:
+        dataset_args['perturb_type'] = args.perturb
+    else:
+        dataset_args['perturb_type'] = 'none'
     
     dataset = datasets.DATASETS[conf['datasetname']].build_dataset(dataset_args)
     print(conf) 
@@ -161,7 +165,7 @@ def parse_arguments():
     parser.add_argument('--job', type=int, default=1)
     parser.add_argument('--gpu', action='store_true')
     parser.add_argument('--batchsize', type=int, default=256)
-   
+    parser.add_argument('--perturb', type=str, default=None) 
     # Args specific to different components
     args, leftover = parser.parse_known_args()
     conf = json.load(open(args.modeldir + '/conf.1.json'))

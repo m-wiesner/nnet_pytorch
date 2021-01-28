@@ -36,7 +36,7 @@ width=10
 depth=28
 bottleneck=92
 dropout=0.2
-objective=LFMMI #CrossEntropy, SemisupLFMMI, LFMMI_EBM, SemisupMCE, LFMMI_MCE
+objective=LFMMI #CrossEntropy, SemisupLFMMI, LFMMI_EBM, SemisupMCE, LFMMI_MCE, InfoNCE
 
 # Ivector params
 ivector_dim=
@@ -190,6 +190,10 @@ fi
 
 if [[ $objective = "CrossEntropy_EBM" ]]; then
   obj_fun_opts="${obj_fun_opts} --sgld-steps ${sgld_steps} --sgld-max-steps ${sgld_max_steps} --sgld-buffer ${sgld_buffer} --sgld-reinit-p ${sgld_reinit_p} --sgld-stepsize ${sgld_stepsize} --sgld-noise ${sgld_noise} --ebm-weight ${ebm_weight} --ebm-type ${ebm_type} --xent-weight ${xent_weight} --l2-energy ${l2_energy} --sgld-warmup ${sgld_warmup} --sgld-decay ${sgld_decay} --sgld-thresh ${sgld_thresh} --sgld-replay-correction ${sgld_replay_correction} --sgld-optim ${sgld_optim} --sgld-weight-decay ${sgld_weight_decay} --sgld-clip ${sgld_clip}" 
+fi
+
+if [[ $objective = "InfoNCE" ]]; then
+  obj_fun_opts="${obj_fun_opts} --l2-reg ${l2}"
 fi
 
 # Model options

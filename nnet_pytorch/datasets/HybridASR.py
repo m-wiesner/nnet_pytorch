@@ -248,7 +248,7 @@ class HybridAsrDataset(NnetPytorchDataset):
             sample = self[(split_idx, utt_idx, idx + utt_offset)]
             name.append(sample.metadata['name'])
             input_size = torch.from_numpy(sample.input)
-            perturb(input_size, perturb_type=self.perturb_type)
+            perturb(input_size, perturbations=self.perturb_type)
             input_tensor[size, :, :] = input_size 
             output[size, :] = torch.LongTensor(sample.target)
 
@@ -288,7 +288,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                         'right_context': self.right_context,
                     }
                     input_tensor = torch.tensor(inputs, dtype=torch.float32) 
-                    perturb(input_tensor, perturb_type=self.perturb_type)
+                    perturb(input_tensor, perturbations=self.perturb_type)
                     
                     output_tensor = torch.LongTensor(output)
                     yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
@@ -303,7 +303,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                     'right_context': self.right_context,
                 }
                 input_tensor = torch.tensor(inputs, dtype=torch.float32) 
-                perturb(input_tensor, perturb_type=self.perturb_type)
+                perturb(input_tensor, perturbations=self.perturb_type)
                 output_tensor = torch.LongTensor(output)
                 yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
                 self.closure(set(split))

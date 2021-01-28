@@ -30,8 +30,7 @@ def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'
             "LR: ", lr_sched.curr_lr, end=' '    
         )
         if correct is not None:
-            print(" Acc: ", float(correct.data.item()) / (b.target.view(-1).size(0)), end='')
-        print()
+            print(" Acc: ", float(correct.data.item()) / (b.target.view(-1).size(0)), end=' ')
         total_loss += loss.data.item()
         loss.backward()
         loss.detach()
@@ -39,9 +38,13 @@ def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'
         # Mimics multigpu training with large batches on a single gpu
         if ((i % args.delay_updates) == 0):
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_thresh)
+            print("Grad_norm: ", grad_norm.data.item(), end='')
+            print()
             optim.step()
             optim.zero_grad()
-            lr_sched.step(1.0) 
+            lr_sched.step(1.0)
+        else:
+            print() 
     return total_loss / args.batches_per_epoch
 
 
