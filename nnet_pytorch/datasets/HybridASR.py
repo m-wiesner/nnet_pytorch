@@ -22,7 +22,8 @@ class HybridAsrDataset(NnetPytorchDataset):
     @classmethod
     def build_dataset(cls, ds):
         perturb_type = ds.get('perturb_type', 'none')
-        
+        random_cw = ds.get('random_cw', False)
+        min_chunk_width = ds.get('min_chunk_width', 8)  
         return HybridAsrDataset(
             ds['data'], ds['tgt'],
             left_context=ds['left_context'],
@@ -33,6 +34,8 @@ class HybridAsrDataset(NnetPytorchDataset):
             mean=ds['mean_norm'], var=ds['var_norm'],
             utt_subset=ds['utt_subset'],
             perturb_type=perturb_type,
+            random_cw=random_cw,
+            min_chunk_width=min_chunk_width,
         )
     
     def __init__(self, datadir, targets,
@@ -40,7 +43,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         left_context=10, right_context=3, chunk_width=1,
         batchsize=128, mean=True, var=True,
         utt_subset=None, subsample=1,
-        perturb_type='none',
+        perturb_type='none', random_cw=False, min_chunk_width=8,
     ):
         # Load CMVN
         cmvn_scp = os.path.sep.join((datadir, 'cmvn.scp'))
@@ -109,10 +112,15 @@ class HybridAsrDataset(NnetPytorchDataset):
         self.left_context = left_context
         self.right_context = right_context
         self.chunk_width = chunk_width
+        self.min_chunk_width = min_chunk_width
         self.subsample_chunk_width = len(
             range(0, self.chunk_width, self.subsample)
         )
-
+        self.random_cw = random_cw
+        self.curr_chunk_width = chunk_width
+        self.curr_subsample_chunk_width = self.subsample_chunk_width
+        self.curr_batchsize = self.batchsize
+         
         # Get the subset of speakers we actually want to use (important for evaluation)
         if utt_subset is not None:
             with open(utt_subset) as f:
@@ -162,7 +170,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         target_start = (idx - offset) // self.subsample
         target_end = min(
             len(self.targets[utt_name]),
-            target_start + self.subsample_chunk_width,
+            target_start + self.curr_subsample_chunk_width,
         )
                 
         target = self.targets[utt_name][target_start: target_end]
@@ -170,7 +178,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         # Get the lower and upper boundaries for the window
         lower_boundary = max(offset, idx - self.left_context)
         upper_boundary = min(
-            offset + utt_length, idx + self.right_context + self.chunk_width
+            offset + utt_length, idx + self.right_context + self.curr_chunk_width
         )
 
         x = np.array(self.data[split_idx][lower_boundary: upper_boundary, :])
@@ -182,7 +190,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         # This is solving the edge case needed when the beginning
         # and end frames need to be padded with the appropriate contexts
         left_zero_pad = max(0, self.left_context - (idx - lower_boundary))
-        right_zero_pad = max(0, self.right_context + (self.chunk_width - 1) - ((upper_boundary-1) - idx))
+        right_zero_pad = max(0, self.right_context + (self.curr_chunk_width - 1) - ((upper_boundary-1) - idx))
         if left_zero_pad > 0 or right_zero_pad > 0: 
             x = np.pad(
                 x, ((left_zero_pad, right_zero_pad,), (0, 0)),
@@ -217,18 +225,28 @@ class HybridAsrDataset(NnetPytorchDataset):
     def size(self, idx):
         return 1
 
+    def update_curr_cw(self):
+        # Chunkwidth must always be at least self.min_chunk_width
+        self.curr_chunk_width = self.min_chunk_width + int((random.random() - 1e-09) * (self.chunk_width - self.min_chunk_width))
+        self.curr_subsample_chunk_width = len(
+                range(0, self.curr_chunk_width, self.subsample)
+            )
+        self.curr_batchsize = (self.batchsize * self.chunk_width) // self.curr_chunk_width 
+
     def minibatch(self):
-        batchlength = self.left_context + self.right_context + self.chunk_width
+        if self.random_cw:
+            self.update_curr_cw()
+        batchlength = self.left_context + self.right_context + self.curr_chunk_width
         batchdim = self.data_shape[0][1]
         # Initialize batch
-        input_tensor = torch.zeros((self.batchsize, batchlength, batchdim))
+        input_tensor = torch.zeros((self.curr_batchsize, batchlength, batchdim))
         output = torch.zeros(
-            (self.batchsize, self.subsample_chunk_width),
+            (self.curr_batchsize, self.curr_subsample_chunk_width),
             dtype=torch.int64
         )
         name, split = [], []
         size = 0
-        while size < self.batchsize:
+        while size < self.curr_batchsize:
             # first sample a data split at random
             split_idx = int((random.random() - 1e-09) * len(self.data_shape))
             
@@ -241,7 +259,7 @@ class HybridAsrDataset(NnetPytorchDataset):
 
             # Check that the chunk width does not go over the utterance
             # boundary
-            if idx + self.chunk_width > utt_length:
+            if idx + self.curr_chunk_width > utt_length:
                 continue; 
             
             split.append(split_idx)
@@ -281,7 +299,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                 output.extend(sample.target)
                 i += 1
                 # Yield the minibatch when this one is full 
-                if i == self.batchsize:
+                if i == self.curr_batchsize:
                     metadata = {
                         'name': name, 
                         'left_context': self.left_context,

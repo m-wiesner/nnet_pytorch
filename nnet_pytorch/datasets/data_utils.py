@@ -148,9 +148,16 @@ def perturb(x, perturbations='none'):
         elif perturb_type[0] == 'time_mask':
             params = perturb_type[1]   
             width = params.get('width', 4) # 4 is the default
-            num_holes = params.get('holes', 2) # 2 is the default 
+            max_drop_percent = params.get('max_drop_percent', None)
+            if max_drop_percent is None: 
+                num_holes = params.get('holes', 2) # 2 is the default
+            else:
+                # Max number of holes to create
+                num_holes = int(max_drop_percent * (x.size(0) / width))  
             for i in range(random.randint(0, num_holes)):
-                this_width = int(width * random.random())
+                # The width has to be at most 1 less than x.size(0)
+                # where x.size(0) = left + cw + right
+                this_width = min(int(width * random.random()), x.size(0) - 1)
                 start = random.randint(0, x.size(0) - this_width)
                 end = start + this_width
                 mask = (torch.arange(x.size(0)) >= start) * (torch.arange(x.size(0)) < end)  
@@ -161,7 +168,8 @@ def perturb(x, perturbations='none'):
             width = params.get('width', 4) # 4 is the default
             num_holes = params.get('holes', 2) # 2 is the default
             for i in range(random.randint(0, num_holes)):
-                this_width = int(width * random.random())
+                # The width has to be at most 1 less than x.size(-1) 
+                this_width = min(int(width * random.random()), x.size(-1) - 1)
                 start = random.randint(0, x.size(-1) - this_width)
                 end = start + this_width
                 mask = (torch.arange(x.size(-1)) >= start) * (torch.arange(x.size(-1)) < end)  

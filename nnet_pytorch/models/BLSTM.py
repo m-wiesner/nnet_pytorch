@@ -78,7 +78,7 @@ class BLSTM(torch.nn.Module):
         for blstm, batchnorm in zip(self.blstm, self.batchnorm[:-1]):
             xs_pad = blstm(xs_pad)[0].transpose(0,1)
             xs_pad = self.nonlin(xs_pad)
-            if not self.batch_norm_dropout: 
+            if self.batch_norm_dropout: 
                 xs_pad = batchnorm(xs_pad)
                 xs_pad = F.dropout(xs_pad, p=self.dropout, training=self.training)
       
@@ -86,7 +86,7 @@ class BLSTM(torch.nn.Module):
         end_idx = xs_pad.size(1) if right_context == 0 else -right_context
         output2 = xs_pad[:, left_context:end_idx:self.subsample, :]
         xs_pad = self.nonlin(self.prefinal_affine(xs_pad))
-        if not self.batch_norm_dropout:
+        if self.batch_norm_dropout:
             xs_pad = self.batchnorm[-1](xs_pad)
         
         # This is basically just glue
@@ -134,7 +134,7 @@ class ChainBLSTM(BLSTM):
         output, xs_pad = super().forward(xs_pad)
         if self.training:
             xs_pad = self.nonlin(self.prefinal_xent(xs_pad))
-            if not self.batch_norm_dropout:
+            if self.batch_norm_dropout:
                 xs_pad = self.xent_batchnorm(xs_pad)
             xs_pad = self.xent_layer(xs_pad)
         return output, xs_pad 

@@ -21,16 +21,18 @@ def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'
     
     for i, b in enumerate(generator, 1): 
         b = move_to(b, device)
+        print(
+            "Iter: ", int(i / args.delay_updates), " of ", total_num_updates,
+            "LR: {:0.5e}".format(lr_sched.curr_lr), 
+            "bsize: ", b.target.size(0), 
+            "cw: ", b.input.size(1), end=' '
+        )
         loss, correct = objective(model, b)
         if isinstance(loss, int):
             continue;
-        print(
-            "Iter: ", int(i / args.delay_updates), " of ", total_num_updates,
-            "Loss: ", loss.data.item(),
-            "LR: ", lr_sched.curr_lr, end=' '    
-        )
+        print("Loss: {:0.5f}".format(loss.data.item()), end=' ')
         if correct is not None:
-            print(" Acc: ", float(correct.data.item()) / (b.target.view(-1).size(0)), end=' ')
+            print(" Acc: {:0.5f}".format(float(correct.data.item()) / (b.target.view(-1).size(0))), end=' ')
         total_loss += loss.data.item()
         loss.backward()
         loss.detach()
@@ -38,7 +40,7 @@ def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'
         # Mimics multigpu training with large batches on a single gpu
         if ((i % args.delay_updates) == 0):
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_thresh)
-            print("Grad_norm: ", grad_norm.data.item(), end='')
+            print("Grad_norm: {:0.5f}".format(grad_norm.data.item()), end='')
             print()
             optim.step()
             optim.zero_grad()

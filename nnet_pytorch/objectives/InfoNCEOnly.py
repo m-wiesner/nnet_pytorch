@@ -5,6 +5,7 @@
 
 import torch
 import torch.nn as nn
+import math
 from .L2 import L2
 
 
@@ -44,13 +45,13 @@ class InfoNCELoss(nn.Module):
         correct = sum([l.exp() for l in loss]) * T 
         loss = -sum(loss)
         if self.avg:
-            loss /= B
-            print('InfoNCE: {}'.format(loss.data.item()), end=' ')
+            print('InfoNCE: {:0.5f}'.format(math.log(B) - (loss.data.item() / B)), end=' ')
+            loss /= (B * T)
         
         if self.l2_reg > 0:
             loss_l2, _ = self.l2(model, sample, precomputed=x)
             loss_l2 *= self.l2_reg
-            print('L2: {}'.format(loss_l2.data.item()), end=' ')
+            print('L2: {:0.5f}'.format(loss_l2.data.item()), end=' ')
         loss += loss_l2
         
         return loss, correct
