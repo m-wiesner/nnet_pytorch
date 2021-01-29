@@ -25,10 +25,13 @@ def main():
     print(args)
   
     # Get GPU and reserve
-    if args.gpu:
-        # User will need to set CUDA_VISIBLE_DEVICES here
-        cvd = subprocess.check_output(["/usr/local/bin/free-gpu", "-n", "1"]).decode().strip()
-        os.environ['CUDA_VISIBLE_DEVICES'] = cvd
+    #if args.gpu:
+    #    # User will need to set CUDA_VISIBLE_DEVICES here
+    #    p = subprocess.run(
+    #        ["nvidia-smi", "-L"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    #    )
+    #    cvd = subprocess.check_output(["/usr/local/bin/free-gpu", "-n", "1"]).decode().strip()
+    #    os.environ['CUDA_VISIBLE_DEVICES'] = cvd
 
     device = torch.device('cuda' if args.gpu else 'cpu')
     reserve_variable = torch.ones(1).to(device)

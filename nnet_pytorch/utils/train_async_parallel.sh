@@ -142,7 +142,7 @@ fi
 # GPU vs. CPU training command
 if $gpu; then
   gpu_opts="--gpu"
-  train_cmd="utils/retry.pl utils/queue.pl --mem 4G --gpu 1 --config conf/gpu.conf" 
+  train_cmd="utils/retry.pl utils/queue.pl --mem 4G --gpu 1 --config conf/gpu.conf"
 fi
 
 if [ ! -z $init ]; then
@@ -230,6 +230,7 @@ fi
 
 [ -f ${odir}/.error ] && rm ${odir}/.error
 
+#train_cmd="qsub -v PATH -S /bin/bash -b y -q gpu.q -cwd -j y -N train.${e}.${j}.log -l gpu=1,num_proc=10,mem_free=64G,hostname='!r3n*&!r5n*&!r6n02&!r8n*&!r2n07',h_rt=600:00:00 -o ${odir}/train.${e}.${j}.log"
 for e in `seq ${start_epoch} ${num_epochs}`; do
   nj=`echo ${num_epochs} ${nj_final} ${nj_init} ${e} | awk '{print int($4*($2-$3)/$1) + $3}'`
   epoch_seed=`echo $nj $e $seed | awk '{print ($3+1)*$1*($2-1) + 1}'`
