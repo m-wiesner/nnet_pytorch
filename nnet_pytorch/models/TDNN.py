@@ -101,7 +101,7 @@ class TDNN(torch.nn.Module):
         # Basic pattern is (tdnn, relu, batchnorm, dropout) x num_layers 
         for tdnn, batchnorm in zip(self.tdnn, self.batchnorm[:-1]):
             xs_pad = self.nonlin(tdnn(xs_pad))
-            if not self.batch_norm_dropout: 
+            if self.batch_norm_dropout: 
                 xs_pad = batchnorm(xs_pad)
                 xs_pad = F.dropout(xs_pad, p=self.dropout, training=self.training)
       
@@ -109,7 +109,7 @@ class TDNN(torch.nn.Module):
         end_idx = xs_pad.size(2) if right_context == 0 else -right_context
         output2 = xs_pad.transpose(1, 2)[:, left_context:end_idx:self.subsample, :]
         xs_pad = self.nonlin(self.prefinal_affine(xs_pad))
-        if not self.batch_norm_dropout:
+        if self.batch_norm_dropout:
             xs_pad = self.batchnorm[-1](xs_pad)
         
         # This is basically just glue
@@ -162,7 +162,7 @@ class ChainTDNN(TDNN):
         output, xs_pad = super().forward(xs_pad)
         if self.training:
             xs_pad = self.nonlin(self.prefinal_xent(xs_pad))
-            if not self.batch_norm_dropout:
+            if self.batch_norm_dropout:
                 xs_pad = self.xent_batchnorm(xs_pad.transpose(1, 2)).transpose(1, 2)
             xs_pad = self.xent_layer(xs_pad)
         return output, xs_pad 

@@ -140,29 +140,54 @@ def load_utt_subset(f):
     return utt_subset
 
 
-def perturb(x, perturb_type='none'):
-    if perturb_type == 'none':
-        pass
-    elif perturb_type == 'salt_pepper':
-        x *= torch.FloatTensor(x.size()).random_(0, 2).to(x.dtype)
-    elif perturb_type == 'time_mask':
-        width=4
-        start = random.randint(0, x.size(1) - width)
-        end = start + width
-        mask = (torch.arange(x.size(1)) >= start) * (torch.arange(x.size(1)) < end)  
-        mask = mask[:, None].expand(x.size())
-        x[mask] = 0.0
-    elif perturb_type == 'freq_mask': 
-        width=10
-        start = random.randint(0, x.size(0) - width)
-        end = start + width
-        mask = (torch.arange(x.size(-1)) >= start) * (torch.arange(x.size(-1)) < end)  
-        mask = mask[None, :].expand(x.size())
-        x[mask] = 0.0 
-    elif perturb_type.startswith('gauss'):
-        std = float(perturb_type.split()[1])
-        x += std * torch.randn_like(x)
-    elif perturb_type.startswith('rand'):
-        maxval = float(perturb_type.split()[1])
-        x.uniform_(-maxval, maxval)
-    #return x 
+def perturb(x, perturbations='none'):
+    def apply_perturbation(x, perturb_type): 
+        if perturb_type[0] == 'salt_pepper':
+            maxval = perturb_type.split()[1]
+            x *= torch.FloatTensor(x.size()).random_(0, maxval).to(x.dtype)
+        elif perturb_type[0] == 'time_mask':
+            params = perturb_type[1]   
+            width = params.get('width', 4) # 4 is the default
+            max_drop_percent = params.get('max_drop_percent', None)
+            if max_drop_percent is None: 
+                num_holes = params.get('holes', 2) # 2 is the default
+            else:
+                # Max number of holes to create
+                num_holes = int(max_drop_percent * (x.size(0) / width))  
+            for i in range(random.randint(0, num_holes)):
+                # The width has to be at most 1 less than x.size(0)
+                # where x.size(0) = left + cw + right
+                this_width = min(int(width * random.random()), x.size(0) - 1)
+                start = random.randint(0, x.size(0) - this_width)
+                end = start + this_width
+                mask = (torch.arange(x.size(0)) >= start) * (torch.arange(x.size(0)) < end)  
+                mask = mask[:, None].expand(x.size())
+                x[mask] = 0.0
+        elif perturb_type[0] == 'freq_mask': 
+            params = perturb_type[1]
+            width = params.get('width', 4) # 4 is the default
+            num_holes = params.get('holes', 2) # 2 is the default
+            for i in range(random.randint(0, num_holes)):
+                # The width has to be at most 1 less than x.size(-1) 
+                this_width = min(int(width * random.random()), x.size(-1) - 1)
+                start = random.randint(0, x.size(-1) - this_width)
+                end = start + this_width
+                mask = (torch.arange(x.size(-1)) >= start) * (torch.arange(x.size(-1)) < end)  
+                mask = mask[None, :].expand(x.size())
+                x[mask] = 0.0 
+        elif perturb_type[0] == 'gauss':
+            params = perturb_type[1]
+            std = params.get('std', 0.3) # 0.3 is the default   
+            this_std = std * random.random()
+            x += this_std * torch.randn_like(x)
+        elif perturb_type[0] == 'rand':
+            params = perturb_type[1]
+            maxval = params.get('maxval', 1.0) 
+            x.uniform_(-maxval, maxval)
+    
+    if perturbations == 'none':
+        return
+    else:
+        perturbations = eval(perturbations)
+    for pt in perturbations:
+        apply_perturbation(x, pt)
