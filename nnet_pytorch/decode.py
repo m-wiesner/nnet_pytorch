@@ -47,20 +47,28 @@ def main():
     if not os.path.exists(targets):
         print("Dummy targets not found")
         sys.exit(1)
+        
+    if args.perturb is not None:
+        dataset_args['perturb_type'] = args.perturb
+    else:
+        dataset_args['perturb_type'] = 'none'
     
+    if args.chunk_width is not None and args.chunk_width > 0:
+        dataset_args['chunk_width'] = args.chunk_width
+    else:
+        # Use avg chunkwidth in decoding
+        dataset_args['chunk_width'] = (dataset_args['chunk_width'] + dataset_args.get('min_chunk_width', 1)) // 2
+
     dataset_args.update(
         {
             'data':args.datadir,
             'tgt':targets,
             'subsample': subsample_val,
             'utt_subset': args.utt_subset,
+            'random_cw': False,
         }
     )
-    if args.perturb is not None:
-        dataset_args['perturb_type'] = args.perturb
-    else:
-        dataset_args['perturb_type'] = 'none'
-    
+
     dataset = datasets.DATASETS[conf['datasetname']].build_dataset(dataset_args)
     print(conf) 
     # Build the model and send to the device (cpu or gpu). Generally cpu.
@@ -166,6 +174,7 @@ def parse_arguments():
     parser.add_argument('--gpu', action='store_true')
     parser.add_argument('--batchsize', type=int, default=256)
     parser.add_argument('--perturb', type=str, default=None) 
+    parser.add_argument('--chunk-width', type=int, default=None)
     # Args specific to different components
     args, leftover = parser.parse_known_args()
     conf = json.load(open(args.modeldir + '/conf.1.json'))

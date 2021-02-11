@@ -11,9 +11,11 @@ min_active=200
 max_active=7000
 max_mem=50000000
 lattice_beam=8.0
+cmd="utils/queue.pl --mem 6G -l hostname='!b02*&!b13*&!a*&!c06*&!c07*&!c12*&!c23*&!c24*&!c25*&!c26*&!c27*'" 
 beam=15.0
 acoustic_scale=1.0
 post_decode_acwt=10.0 # 10.0 for chain systems, 1.0 for non-chain
+chunk_width=
 
 min_lmwt=6
 max_lmwt=18
@@ -45,15 +47,19 @@ hclg=${graphdir}/HCLG.fst
 
 mkdir -p ${odir}/log
 
-decode_cmd="utils/queue.pl --mem 6G -l hostname='!b02*&!a*&!c06*&!c12*&!c23*&!c24*&!c25*&!c26*&!c27*'" # The 'a' machines are just too slow
 if [ $stage -le 0 ]; then
   segments=${data}/segments
   if [ ! -f ${data}/segments ]; then
     echo "No segments file found. Assuming wav.scp is indexed by utterance"
     segments=${data}/wav.scp
   fi
+  
+  cw_opts=
+  if [ ! -z $chunk_width ]; then
+    cw_opts="--chunk-width ${chunk_width}"
+  fi 
 
-${decode_cmd} JOB=1:${nj} ${odir}/log/decode.JOB.log \
+  ${cmd} JOB=1:${nj} ${odir}/log/decode.JOB.log \
     ./utils/split_scp.pl -j ${nj} \$\[JOB -1\] ${segments} \|\
     decode.py --datadir ${data} \
       --modeldir ${pytorch_model} \
@@ -73,7 +79,8 @@ ${decode_cmd} JOB=1:${nj} ${odir}/log/decode.JOB.log \
       --post-decode-acwt ${post_decode_acwt} \
       --job JOB \
       --utt-subset /dev/stdin \
-      --batchsize ${batchsize}
+      --batchsize ${batchsize} \
+      ${cw_opts}
 fi
 
 if [ $stage -le 1 ]; then

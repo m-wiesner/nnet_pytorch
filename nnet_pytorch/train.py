@@ -253,7 +253,6 @@ def parse_arguments():
         ])
     parser.add_argument('--expdir')
     parser.add_argument('--num-targets', type=int)
-    parser.add_argument('--idim', type=int)
     parser.add_argument('--priors-only', action='store_true')
     parser.add_argument('--model', default='TDNN',
         choices=[

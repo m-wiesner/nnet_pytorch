@@ -4,12 +4,14 @@ import torch.nn.functional as F
 from .L2 import L2
 from .CrossEntropy import CrossEntropy 
 from .LFMMIOnly import ChainLoss as LFMMI
+from .InfoNCEOnly import InfoNCELoss as InfoNCE
 
 
 class ChainLoss(nn.Module):
     @staticmethod
     def add_args(parser):
         parser.add_argument('--xent-reg', type=float, default=0.2)
+        parser.add_argument('--infonce-reg', type=float, default=0.2)
         parser.add_argument('--l2-reg', type=float, default=0.00025)
         for m in [L2, CrossEntropy, LFMMI]:
             m.add_args(parser) 
@@ -19,6 +21,7 @@ class ChainLoss(nn.Module):
         return ChainLoss(
             conf['denom_graph'],
             xent_reg=conf['xent_reg'],
+            infonce_reg=conf.get('infonce_reg', 0),
             l2_reg=conf['l2_reg'],
             leaky_hmm=conf.get('leaky_hmm', 0.1),
         )
@@ -29,11 +32,14 @@ class ChainLoss(nn.Module):
 
     def __init__(
         self, den_graph,
-        xent_reg=0.2, l2_reg=0.00025, avg=True, leaky_hmm=0.1,
+        xent_reg=0.2, infonce_reg=0.0, l2_reg=0.00025, avg=True, leaky_hmm=0.1,
     ):
         super(ChainLoss, self).__init__()
         self.lfmmi = LFMMI(den_graph, leaky_hmm=leaky_hmm)  
         self.xent = CrossEntropy()
+        self.infonce_reg = infonce_reg
+        if infonce_reg > 0:
+            self.infonce = InfoNCE()
         self.l2 = L2()
         
         self.l2_reg = l2_reg
@@ -76,6 +82,14 @@ class ChainLoss(nn.Module):
             loss_l2 *= self.l2_reg
             print('L2: {}'.format(loss_l2.data.item()), end=' ')
             losses.append(loss_l2)
+
+        if self.infonce > 0:
+            loss, correct = self.infonce(
+                model,
+                sample,
+                precomputed=chain_output[1],
+            )
+            losses.append(loss)
 
         loss = sum(losses)
         return loss, correct
