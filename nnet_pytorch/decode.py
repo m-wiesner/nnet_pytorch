@@ -132,7 +132,7 @@ def decode(args, dataset, model, priors, device='cpu'):
             # probabilities are normalized (subtraction in log space), by the
             # log priors in order to produce pseudo-likelihoods useable for
             # for lattice generation with latgen-faster-mapped
-            for key, mat in decode_dataset(args, generator, model, device='cpu'):
+            for key, mat in decode_dataset(args, generator, model, device='cpu', output_idx=args.output_idx):
                 if len(utt_mat) > 0 and key != prev_key:   
                     kaldi_io.write_mat(
                         f, np.concatenate(utt_mat, axis=0)[:utt_length, :],
@@ -175,6 +175,7 @@ def parse_arguments():
     parser.add_argument('--batchsize', type=int, default=256)
     parser.add_argument('--perturb', type=str, default=None) 
     parser.add_argument('--chunk-width', type=int, default=None)
+    parser.add_argument('--output-idx', type=int, default=0)
     # Args specific to different components
     args, leftover = parser.parse_known_args()
     conf = json.load(open(args.modeldir + '/conf.1.json'))

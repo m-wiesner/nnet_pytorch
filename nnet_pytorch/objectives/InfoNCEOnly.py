@@ -30,8 +30,6 @@ class InfoNCELoss(nn.Module):
         self.l2_reg = l2_reg
 
     def forward(self, model, sample, precomputed=None):
-        B = sample.input.size(0) # batchsize
-        
         # Check if we are using precomputed values
         if precomputed is not None:
             x = precomputed
@@ -39,20 +37,22 @@ class InfoNCELoss(nn.Module):
             x = model(sample)[0]
         
         T = x.size(1) # Length
+        B = x.size(0)
         loss = self.compute_loss(x, sample.target)
         # This is for printing. It's the average number of targets classified
         # correctly.
         correct = sum([l.exp() for l in loss]) * T 
         loss = -sum(loss)
+        print('InfoNCE: {:0.5f}'.format(math.log(B) - (loss.data.item() / B)), end=' ')
+        print('InfoNCE_Acc: {:0.5f}'.format(correct.data.item() / (B * T)), end=' ')
         if self.avg:
-            print('InfoNCE: {:0.5f}'.format(math.log(B) - (loss.data.item() / B)), end=' ')
             loss /= (B * T)
         
         if self.l2_reg > 0:
             loss_l2, _ = self.l2(model, sample, precomputed=x)
             loss_l2 *= self.l2_reg
             print('L2: {:0.5f}'.format(loss_l2.data.item()), end=' ')
-        loss += loss_l2
+            loss += loss_l2
         
         return loss, correct
 
@@ -67,3 +67,4 @@ class InfoNCELoss(nn.Module):
             ).sum(dim=1).logsumexp(dim=0)
             loss.append(numerators[i] - denominator)
         return loss
+

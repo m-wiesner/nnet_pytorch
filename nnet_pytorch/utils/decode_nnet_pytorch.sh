@@ -16,6 +16,8 @@ beam=15.0
 acoustic_scale=1.0
 post_decode_acwt=10.0 # 10.0 for chain systems, 1.0 for non-chain
 chunk_width=
+output_idx=0
+score=true
 
 min_lmwt=6
 max_lmwt=18
@@ -80,11 +82,14 @@ if [ $stage -le 0 ]; then
       --job JOB \
       --utt-subset /dev/stdin \
       --batchsize ${batchsize} \
+      --output-idx ${output_idx} \
       ${cw_opts}
 fi
 
 if [ $stage -le 1 ]; then
-  ./local/score.sh --cmd "$decode_cmd" \
-    --min-lmwt ${min_lmwt} --max-lmwt ${max_lmwt} --word-ins-penalty 0.0 \
-    ${data} ${graphdir} ${odir}
+  if $score; then
+    ./local/score.sh --cmd "$train_cmd" \
+      --min-lmwt ${min_lmwt} --max-lmwt ${max_lmwt} \
+      ${data} ${graphdir} ${odir}
+  fi
 fi

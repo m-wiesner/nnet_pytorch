@@ -184,6 +184,12 @@ def perturb(x, perturbations='none'):
             params = perturb_type[1]
             maxval = params.get('maxval', 1.0) 
             x.uniform_(-maxval, maxval)
+        elif perturb_type[0] == 'volume':
+            params = perturb_type[1]
+            maxscale = params.get('scale', 2.0)
+            this_scale = maxscale * random.random()
+            x *= this_scale
+
     
     if perturbations == 'none':
         return

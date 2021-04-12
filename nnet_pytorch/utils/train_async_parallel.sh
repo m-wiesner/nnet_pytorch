@@ -7,6 +7,7 @@ nj_final=8
 num_epochs=20
 seed=0 # Useful for restarting with new seed
 resume=
+init=
 cmd="utils/retry.pl utils/queue.pl --mem 4G --gpu 1 --config conf/gpu.conf" 
 
 . ./utils/parse_options.sh
@@ -37,6 +38,11 @@ start_epoch=1
 if [ ! -z $resume ]; then
   resume_opts="--resume ${resume}.mdl"
   start_epoch=$(( ${resume} + 1))
+  init=""
+fi
+
+if [ ! -z $init ]; then
+  init_opts="--init ${init}"
 fi
 
 [ -f ${odir}/.error ] && rm ${odir}/.error

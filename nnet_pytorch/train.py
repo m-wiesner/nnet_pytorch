@@ -137,8 +137,11 @@ def main():
     if args.init is not None:
         mdl = torch.load(args.init, map_location=device)
         for name, p in model.named_parameters():
-            #if 'xent_layer' not in name and 'linear' not in name: 
-            p.data.copy_(mdl['model'][name].data)
+            if not any([x in name for x in ['xent_layer','linear','final_affine']]):
+                p.data.copy_(mdl['model'][name].data)
+        #for name, p in model.named_parameters():
+        #    if 'xent_layer' not in name and 'linear' not in name: 
+        #        p.data.copy_(mdl['model'][name].data)
   
     # train
     if not args.priors_only:
@@ -264,6 +267,7 @@ def parse_arguments():
             'ChainWideResnet',
             'BLSTM',
             'ChainBLSTM',
+            'MultiChainBLSTM',
         ]
     )
     parser.add_argument('--seed', type=int, default=0)
@@ -272,11 +276,14 @@ def parse_arguments():
         choices=[
             'CrossEntropy',
             'LFMMI',
+            'MultiLFMMI',
             'TSComparison',
             'SemisupLFMMI',
             'LFMMI_EBM',
             'CrossEntropy_EBM',
-            'InfoNCE'
+            'InfoNCE',
+            'SemisupInfoNCE',
+            'InfoNCE2pass',
         ],
     )
     parser.add_argument('--subsample', type=int, default=3)
