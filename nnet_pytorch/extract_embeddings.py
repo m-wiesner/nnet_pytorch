@@ -10,8 +10,8 @@ import torch
 import datasets
 import models
 from LRScheduler import LRScheduler
-from batch_generators import evaluation_batches
-from IterationTypes import decode_dataset
+from batch_generators import batches, evaluation_batches
+from IterationTypes import evaluate_energies
 import kaldi_io
 
 
@@ -20,10 +20,10 @@ def main():
     print(args)
 
     # Reserve the GPU if used in decoding. In general it won't be.        
-    if args.gpu:
-        # User will need to set CUDA_VISIBLE_DEVICES here
-        cvd = subprocess.check_output(["/usr/bin/free-gpu", "-n", "1"]).decode().strip()
-        os.environ['CUDA_VISIBLE_DEVICES'] = cvd
+    #if args.gpu:
+    #    # User will need to set CUDA_VISIBLE_DEVICES here
+    #    cvd = subprocess.check_output(["/usr/bin/free-gpu", "-n", "1"]).decode().strip()
+    #    os.environ['CUDA_VISIBLE_DEVICES'] = cvd
     
     device = torch.device('cuda' if args.gpu else 'cpu')
     reserve_variable = torch.ones(1).to(device)
@@ -54,6 +54,8 @@ def main():
             'tgt':targets,
             'subsample': subsample_val,
             'utt_subset': args.utt_subset,
+            'perturb_type': 'none',
+            'random_cw': False,
         }
     )
     
@@ -78,9 +80,24 @@ def main():
 def forward(args, dataset, model, device='cpu'):
     model.eval()
     with torch.no_grad():
-        generator = batches(args.num_samples, dataset)
-        for i, v in enumerate(evaluate_energies(args, generator, model, device=device)):
-            np.save('{}/embeddings.{}'.format(args.dumpdir, str(i)), v.cpu().numpy())
+        utt_mat = []
+        prev_key = b''
+        generator = evaluation_batches(dataset)
+        for key, mat in decode_dataset(args, generator, model, device=device) 
+            if len(utt_mat) > 0 and key != prev_key:
+                np.save(
+                    '{}/embeddings.{}'.format(args.dumpdir, prev_key.decode('utf-8'),
+                    np.concatenate(utt_mat, axis=0)[:utt_length, :],
+                )
+                utt_mat = []
+            utt_matt.append(mat)
+            prev_key = key
+            utt_length = dataset.utt_lengths[key] // dataset.subsample 
+        if len(utt_mat) > 0:
+            np.save(
+                '{}/embeddings.{}'.format(args.dumpdir, key.decode('utf-8')),
+                np.concatenate(utt_mat, axis=0)[:utt_length, :], 
+            )
 
 
 def parse_arguments():
@@ -90,7 +107,6 @@ def parse_arguments():
     parser.add_argument('--dumpdir')
     parser.add_argument('--checkpoint', default='final.mdl')
     parser.add_argument('--gpu', action='store_true')
-    parser.add_argument('--num-samples', type=int, default=1000)
    
     # Args specific to different components
     args, leftover = parser.parse_known_args()
