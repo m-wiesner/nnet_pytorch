@@ -18,11 +18,14 @@ for f in modules:
 OBJECTIVES = {
     'CrossEntropy': CrossEntropy.CrossEntropy,
     'LFMMI': LFMMI.ChainLoss,
+    'MultiLFMMI': MultiLFMMI.MultiChainLoss,
     'SemisupLFMMI': SemisupLFMMI.ChainLoss,
     'LFMMI_EBM': LFMMI_EBM.SequenceEBMLoss,
     'CrossEntropy_EBM': CrossEntropy_EBM.EBMLoss,
     'LFMMINum': LFMMIOnly.NumeratorFunction,
     'InfoNCE': InfoNCEOnly.InfoNCELoss,
+    'SemisupInfoNCE': SemisupInfoNCE.InfoNCELoss,
+    'InfoNCE2pass': InfoNCE2pass.InfoNCELoss,
 }
 
 def build_objective(objectivename, conf):

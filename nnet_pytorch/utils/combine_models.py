@@ -45,8 +45,6 @@ def main():
     }
 
     optimizer = optimizers[conf['optim']]
-    opt_state_dict = optimizer.state_dict()
-
 
     new_mdl_dict = new_model.state_dict()
     new_optim_dict = optimizer.state_dict()
@@ -60,13 +58,6 @@ def main():
     for i, m in enumerate(args.models):
         print("Combining Model ", i, " ...")
         state_dict = torch.load(m, map_location=torch.device('cpu'))
-        if i == 0 and 'buffer' in state_dict:
-            new_buffer = torch.FloatTensor(
-                state_dict['buffer'].cpu().size(0),
-                state_dict['buffer'].cpu().size(1),
-                state_dict['buffer'].cpu().size(2),
-            )
-            new_buffer_numsteps = torch.zeros(state_dict['buffer'].cpu().size(0))
         
         #----------------------- Model -------------------------
         # To combine models, we just average the weights

@@ -231,7 +231,9 @@ class HybridAsrDataset(NnetPytorchDataset):
         self.curr_subsample_chunk_width = len(
                 range(0, self.curr_chunk_width, self.subsample)
             )
-        self.curr_batchsize = (self.batchsize * self.chunk_width) // self.curr_chunk_width 
+        curr_chunk_length = self.chunk_width + self.left_context + self.right_context
+        new_chunk_length = self.curr_chunk_width + self.left_context + self.right_context
+        self.curr_batchsize = (self.batchsize * curr_chunk_length) // new_chunk_length 
 
     def minibatch(self):
         if self.random_cw:

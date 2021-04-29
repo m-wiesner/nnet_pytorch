@@ -18,8 +18,8 @@ def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'
         [args.batches_per_epoch * ds['num_repeats'] for ds in dataset_args]
     )
     total_num_updates = total_num_batches // args.delay_updates 
-    
-    for i, b in enumerate(generator, 1): 
+   
+    for i, b in enumerate(generator, 1*args.delay_updates): 
         b = move_to(b, device)
         print(
             "Iter: ", int(i / args.delay_updates), " of ", total_num_updates,
@@ -93,7 +93,7 @@ def decode_dataset(args, generator, model, device='cpu'):
         yield uttname, lprobs.detach().cpu().numpy()
 
 
-def decode_dataset(args, generator, model, device='cpu'):
+def decode_dataset(args, generator, model, device='cpu', output_idx=0):
     move_to = datasets.DATASETS[args.datasetname].move_to 
     for i, b in enumerate(generator):
         uttname = b.metadata['name'][0]
@@ -101,12 +101,12 @@ def decode_dataset(args, generator, model, device='cpu'):
         model_output = model(b)
         # Chain system
         if 'CrossEntropy' not in args.objective:
-            output = model_output[0].clamp(-30, 30)
+            output = model_output[output_idx].clamp(-30, 30)
             lprobs = output.contiguous().view(-1, output.size(2))
         ## XENT
         elif 'CrossEntropy' in args.objective:
             lprobs = F.log_softmax(
-                model_output[0], dim=-1
+                model_output[output_idx], dim=-1
             ).view(-1, model_output[0].size(-1))
         else:
             print("Undefined Objective")
@@ -130,4 +130,3 @@ def evaluate_energies(args, generator, model, device='cpu'):
         b = move_to(b, device)
         model_output = model(b)
         yield model_output[0] 
-          

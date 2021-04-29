@@ -23,7 +23,8 @@ MODELS = {
     'WideResnet': WideResnet.SpeechResnet,
     'ChainWideResnet': WideResnet.ChainSpeechResnet,
     'BLSTM': BLSTM.BLSTM,
-    'ChainBLSTM': BLSTM.ChainBLSTM
+    'ChainBLSTM': BLSTM.ChainBLSTM,
+    'MultiChainBLSTM': MultiBLSTM.MultiChainBLSTM,
 }
 
 def build_model(modelname, conf):

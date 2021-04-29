@@ -14,14 +14,27 @@ traindir=data/train_100h
 feat_affix=_fbank_64
 chaindir=exp/chain
 model_dirname=wrn_semisup
+width=10
+depth=28
 l2=0.0001
+lr=0.0002
+decay=1e-05
+weight_decay=1e-07
+warmup=15000
 batches_per_epoch=250
-num_epochs=240
-train_nj_init=2
-train_nj_final=6
-perturb="[('time_mask', {'width': 20, 'holes': 12}), ('freq_mask', {'width': 20, 'holes': 10}), ('gauss', {'std': 0.5})]"
-chunkwidth=50
-batchsize=128
+num_epochs=1000
+nj_init=2
+nj_final=6
+perturb="[('time_mask', {'width': 20, 'max_drop_percent': 2.0}), ('freq_mask', {'width': 20, 'holes': 10}), ('gauss', {'std': 1.0})]"
+chunkwidth=276
+min_chunkwidth=4
+random_cw=True
+left_context=10
+right_context=5
+batchsize=8
+delay_updates=1
+grad_thresh=3.0
+seed=0
 resume=
 num_split=80 # number of splits for memory-mapped data for training
 . ./utils/parse_options.sh
@@ -57,34 +70,47 @@ if [ $stage -eq 1 ]; then
     resume_opts="--resume ${resume}"
   fi 
   num_pdfs=$(tree-info ${tree}/tree | grep 'num-pdfs' | cut -d' ' -f2)
-  train_async_parallel.sh ${resume_opts} \
-    --gpu true \
+  train_script="train.py ${resume_opts} \
+    --gpu \
+    --expdir `dirname ${chaindir}`/${model_dirname} \
     --objective InfoNCE \
-    --num-pdfs ${num_pdfs} \
+    --num-targets ${num_pdfs} \
     --subsample ${subsampling} \
     --model ChainWideResnet \
-    --depth 28 \
-    --width 10 \
-    --warmup 1000 \
-    --decay 1e-05 \
-    --weight-decay 1e-07 \
-    --lr 0.0001 \
+    --depth ${depth} \
+    --width ${width} \
+    --warmup ${warmup} \
+    --decay ${decay} \
+    --weight-decay ${weight_decay} \
+    --lr ${lr} \
+    --optim adam \
     --l2 ${l2} \
     --batches-per-epoch ${batches_per_epoch} \
-    --num-epochs ${num_epochs} \
-    --validation-spks 0 \
-    --delay-updates 1 \
-    --nj-init ${train_nj_init} \
-    --nj-final ${train_nj_final} \
-    "[ \
+    --num-epochs 1 \
+    --delay-updates ${delay_updates} \
+    --grad-thresh ${grad_thresh} \
+    --datasets \"[ \
         {\
      'data': '${traindir}${feat_affix}', \
      'tgt': '${targets}', \
-     'batchsize': ${batchsize}, 'chunk_width': ${chunkwidth}, \
-     'left_context': 10, 'right_context': 5, 'num_repeats': 1, \
-     'mean_norm': True, 'var_norm': True, 'perturb_type': '''${perturb}'''\
+     'batchsize': ${batchsize}, \
+     'chunk_width': ${chunkwidth}, 'min_chunk_width': ${min_chunkwidth}, \
+     'left_context': ${left_context}, 'right_context': ${right_context}, 'num_repeats': 1, \
+     'mean_norm': True, 'var_norm': False, 'random_cw': ${random_cw}, \
+     'perturb_type': '''${perturb}'''\
        },\
-     ]" \
-     `dirname ${chaindir}`/${model_dirname}
+     ]\"\
+     "
+ 
+  train_cmd="utils/retry.pl utils/queue.pl --mem 4G --gpu 1 --config conf/gpu.conf"
+
+  train_async_parallel.sh ${resume_opts} \
+    --cmd "$train_cmd" \
+    --nj-init ${nj_init} \
+    --nj-final ${nj_final} \
+    --num-epochs ${num_epochs} \
+    --seed ${seed} \
+    "${train_script}" `dirname ${chaindir}`/${model_dirname}
+
 fi
 
