@@ -88,7 +88,7 @@ fi
 
 if [ $stage -le 1 ]; then
   if $score; then
-    ./local/score.sh --cmd "$train_cmd" \
+    ./local/score.sh --cmd "$decode_cmd" \
       --min-lmwt ${min_lmwt} --max-lmwt ${max_lmwt} \
       ${data} ${graphdir} ${odir}
   fi

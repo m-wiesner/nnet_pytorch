@@ -53,7 +53,6 @@ class InfoNCELoss(nn.Module):
             loss_l2 *= self.l2_reg
             print('L2: {:0.5f}'.format(loss_l2.data.item()), end=' ')
             loss += loss_l2
-        
         return loss, correct
 
     def compute_loss(self, input, targets):
@@ -67,4 +66,3 @@ class InfoNCELoss(nn.Module):
             ).sum(dim=1).logsumexp(dim=0)
             loss.append(numerators[i] - denominator)
         return loss
-

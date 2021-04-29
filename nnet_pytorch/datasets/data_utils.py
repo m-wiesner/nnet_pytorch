@@ -140,6 +140,17 @@ def load_utt_subset(f):
     return utt_subset
 
 
+def load_utt2num_frames(f):
+    '''
+        Load the utt2num_frames files produced during feature creation.
+    '''
+    utt2num_frames = {}
+    for l in f:
+        utt, num_frames = l.strip().split(None, 1)
+        utt2num_frames[utt] = int(num_frames)
+    return utt2num_frames
+
+
 def perturb(x, perturbations='none'):
     def apply_perturbation(x, perturb_type): 
         if perturb_type[0] == 'salt_pepper':

@@ -130,4 +130,5 @@ def evaluate_energies(args, generator, model, device='cpu'):
         b = move_to(b, device)
         model_output = model(b)
         yield model_output.data.item() 
-          
+
+
