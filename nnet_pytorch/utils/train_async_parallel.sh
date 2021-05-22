@@ -9,6 +9,8 @@ seed=0 # Useful for restarting with new seed
 resume=
 init=
 cmd="utils/retry.pl utils/queue.pl --mem 4G --gpu 1 --config conf/gpu.conf" 
+keep_every=20
+keep_last=10
 
 . ./utils/parse_options.sh
 
@@ -47,7 +49,6 @@ fi
 
 [ -f ${odir}/.error ] && rm ${odir}/.error
 
-#train_cmd="qsub -v PATH -S /bin/bash -b y -q gpu.q -cwd -j y -N train.${e}.${j}.log -l gpu=1,num_proc=10,mem_free=64G,hostname='!r3n*&!r5n*&!r6n02&!r8n*&!r2n07',h_rt=600:00:00 -o ${odir}/train.${e}.${j}.log"
 for e in `seq ${start_epoch} ${num_epochs}`; do
   nj=`echo ${num_epochs} ${nj_final} ${nj_init} ${e} | awk '{print int($4*($2-$3)/$1) + $3}'`
   epoch_seed=`echo $nj $e $seed | awk '{print ($3+1)*$1*($2-1) + 1}'`
@@ -70,8 +71,17 @@ for e in `seq ${start_epoch} ${num_epochs}`; do
   done
   
   combine_models.py ${odir}/${e}.mdl ${odir}/conf.1.json --models ${combine_models} > ${odir}/log/combine.${e}.log
+  
+  # Cleanup
+  rm_idx=$((e - keep_last - 1)) 
+  if [ ${rm_idx} -gt 0 ] && [ $((${rm_idx}%${keep_every})) != 0 ]; then
+    rm ${odir}/${rm_idx}.mdl
+  fi
+
+  # Reinitialize options
   resume_opts="--resume ${e}.mdl"
   init_opts=""
+
 done
 
 

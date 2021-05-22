@@ -20,10 +20,10 @@ def main():
     print(args)
 
     # Reserve the GPU if used in decoding. In general it won't be.        
-    if args.gpu:
-        # User will need to set CUDA_VISIBLE_DEVICES here
-        cvd = subprocess.check_output(["/usr/local/bin/free-gpu", "-n", "1"]).decode().strip()
-        os.environ['CUDA_VISIBLE_DEVICES'] = cvd
+    #if args.gpu:
+    #    # User will need to set CUDA_VISIBLE_DEVICES here
+    #    cvd = subprocess.check_output(["/usr/local/bin/free-gpu", "-n", "1"]).decode().strip()
+    #    os.environ['CUDA_VISIBLE_DEVICES'] = cvd
     
     device = torch.device('cuda' if args.gpu else 'cpu')
     reserve_variable = torch.ones(1).to(device)
@@ -89,7 +89,8 @@ def decorrupt(args, dataset, model, objective, device='cpu'):
     model.eval()
     utt_mats = {} 
     prev_key = b''
-    generator = evaluation_batches(dataset)
+    stride = args.left_context + args.chunk_width + args.right_context
+    generator = evaluation_batches(dataset, stride=stride)
     # Each minibatch is guaranteed to have at most 1 utterance. We need
     # to append the output of subsequent minibatches corresponding to
     # the same utterances. These are stored in ``utt_mat'', which is
@@ -139,9 +140,7 @@ def parse_arguments():
     parser.add_argument('--left-context', type=int, default=10)
     parser.add_argument('--right-context', type=int, default=5)
     parser.add_argument('--num-steps', type=int, default=None)
-    parser.add_argument('--perturb', type=str, default='none',
-        choices=['none', 'salt_pepper', 'time_mask', 'freq_mask', 'gauss', 'rand'],
-    )
+    parser.add_argument('--perturb', type=str, default='none')
 
    
     # Args specific to different components

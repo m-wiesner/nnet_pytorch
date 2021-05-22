@@ -190,7 +190,7 @@ class SequenceEBMLoss(nn.Module):
                     start = f.tell()  
                     line = f.readline()
                     i += 1
-            self.cond_energy = 0.0
+            self.cond_energy = None
         else:
             self.ebm_tgt = None
         self.energy = Energy(self.den_graph, leaky_hmm=self.leaky_hmm)
@@ -218,11 +218,17 @@ class SequenceEBMLoss(nn.Module):
                 tgts = self.sample_targets(B, T)
                 sampling_energy = TargetEnergy()            
                 sampling_model_energy = partial(sampling_energy.forward, model, target=tgts)
-                ground_truth_energy = self.cond_energy * (B * T)
+                if not is_unsup and self.cond_energy is None:
+                    num_objf = -NumeratorFunction.apply(x, sample.target)
+                    self.cond_energy = num_objf.data.item() / (B * T)
+                    ground_truth_energy = self.cond_energy * (B * T)
+                elif is_unsup and self.cond_energy is None:
+                    ground_truth_energy = avg_sample_energy.data.item()   
             else:
                 sampling_model_energy = model_energy
                 ground_truth_energy = avg_sample_energy.data.item()
 
+            print(ground_truth_energy)
             # Figure out the weight to use
             if self.warmup > 0 and self.num_warmup_updates < self.warmup: 
                 slope = self.ebm_weight / float(self.warmup) 

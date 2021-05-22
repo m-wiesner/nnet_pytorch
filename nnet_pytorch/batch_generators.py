@@ -14,6 +14,6 @@ def multiset_batches(sets, genfun, *args):
             if b is not None:
                 yield b
     
-def evaluation_batches(dataset):
-    return dataset.evaluation_batches()
+def evaluation_batches(dataset, **kwargs):
+    return dataset.evaluation_batches(**kwargs)
 

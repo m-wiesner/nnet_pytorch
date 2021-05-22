@@ -74,23 +74,23 @@ def validate(args, generator, model, device='cpu'):
     return avg_loss, correct
 
 
-def decode_dataset(args, generator, model, device='cpu'):
-    move_to = datasets.DATASETS[args.datasetname].move_to 
-    for i, b in enumerate(generator):
-        uttname = b.metadata['name'][0]
-        b = move_to(b, device)
-        model_output = model(b)
-        # Chain system
-        if 'LFMMI' in args.objective:
-            output = model_output[0].clamp(-30, 30)
-            lprobs = output.contiguous().view(-1, output.size(2))
-        ## XENT
-        elif 'CrossEntropy' in args.objective:
-            lprobs = F.log_softmax(
-                model_output[0], dim=-1
-            ).view(-1, model_output[0].size(-1))
-
-        yield uttname, lprobs.detach().cpu().numpy()
+#def decode_dataset(args, generator, model, device='cpu'):
+#    move_to = datasets.DATASETS[args.datasetname].move_to 
+#    for i, b in enumerate(generator):
+#        uttname = b.metadata['name'][0]
+#        b = move_to(b, device)
+#        model_output = model(b)
+#        # Chain system
+#        if 'LFMMI' in args.objective:
+#            output = model_output[0].clamp(-30, 30)
+#            lprobs = output.contiguous().view(-1, output.size(2))
+#        ## XENT
+#        elif 'CrossEntropy' in args.objective:
+#            lprobs = F.log_softmax(
+#                model_output[0], dim=-1
+#            ).view(-1, model_output[0].size(-1))
+#
+#        yield uttname, lprobs.detach().cpu().numpy()
 
 
 def decode_dataset(args, generator, model, device='cpu', output_idx=0):

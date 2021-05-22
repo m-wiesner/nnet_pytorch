@@ -225,7 +225,7 @@ class HybridAsrDataset(NnetPytorchDataset):
     def size(self, idx):
         return 1
 
-    def update_curr_cw(self):
+    def update_random_cw(self):
         # Chunkwidth must always be at least self.min_chunk_width
         self.curr_chunk_width = self.min_chunk_width + int((random.random() - 1e-09) * (self.chunk_width - self.min_chunk_width))
         self.curr_subsample_chunk_width = len(
@@ -235,9 +235,10 @@ class HybridAsrDataset(NnetPytorchDataset):
         new_chunk_length = self.curr_chunk_width + self.left_context + self.right_context
         self.curr_batchsize = (self.batchsize * curr_chunk_length) // new_chunk_length 
 
+    
     def minibatch(self):
         if self.random_cw:
-            self.update_curr_cw()
+            self.update_random_cw()
         batchlength = self.left_context + self.right_context + self.curr_chunk_width
         batchdim = self.data_shape[0][1]
         # Initialize batch
@@ -285,7 +286,9 @@ class HybridAsrDataset(NnetPytorchDataset):
         return HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
         
 
-    def evaluation_batches(self):
+    def evaluation_batches(self, stride=None):
+        if stride is None:
+            stride = self.chunk_width
         for u in self.utt_subset:
             split_idx, start = self.offsets_dict[u]
             utt_idx = max(0, bisect(self.offsets[split_idx], start) - 1)
@@ -293,11 +296,13 @@ class HybridAsrDataset(NnetPytorchDataset):
             i = 0
             inputs, output = [], []
             name, split = [], []
-            for idx in range(start, end, self.chunk_width):
+            for idx in range(start, end, stride):
                 sample = self[(split_idx, utt_idx, idx)]
                 name.append(sample.metadata['name'])
                 split.append(split_idx)
-                inputs.append(sample.input) 
+                input_tensor_idx = torch.from_numpy(sample.input)
+                perturb(input_tensor_idx, perturbations=self.perturb_type)
+                inputs.append(input_tensor_idx.unsqueeze(0)) 
                 output.extend(sample.target)
                 i += 1
                 # Yield the minibatch when this one is full 
@@ -307,9 +312,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                         'left_context': self.left_context,
                         'right_context': self.right_context,
                     }
-                    input_tensor = torch.tensor(inputs, dtype=torch.float32) 
-                    perturb(input_tensor, perturbations=self.perturb_type)
-                    
+                    input_tensor = torch.cat(inputs, dim=0).type(torch.float32)
                     output_tensor = torch.LongTensor(output)
                     yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
                     i = 0
@@ -322,13 +325,12 @@ class HybridAsrDataset(NnetPytorchDataset):
                     'left_context': self.left_context,
                     'right_context': self.right_context,
                 }
-                input_tensor = torch.tensor(inputs, dtype=torch.float32) 
-                perturb(input_tensor, perturbations=self.perturb_type)
+                input_tensor = torch.cat(inputs, dim=0).type(torch.float32)
                 output_tensor = torch.LongTensor(output)
                 yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
                 self.closure(set(split))
 
-    
+     
     def closure(self, splits):
         for idx in splits:
             self.free_ram(idx)

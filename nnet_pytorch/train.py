@@ -139,12 +139,13 @@ def main():
     # Initializing with a pretrained model
     if args.init is not None:
         mdl = torch.load(args.init, map_location=device)
-        for name, p in model.named_parameters():
-            if not any([x in name for x in ['xent_layer','linear','final_affine']]):
-                p.data.copy_(mdl['model'][name].data)
         #for name, p in model.named_parameters():
-        #    if 'xent_layer' not in name and 'linear' not in name: 
+        #    if not any([x in name for x in ['xent_layer','linear','final_affine']]):
         #        p.data.copy_(mdl['model'][name].data)
+        for name, p in model.named_parameters():
+            if 'xent_layer' not in name and 'linear' not in name: 
+                if name in mdl['model']: 
+                    p.data.copy_(mdl['model'][name].data)
   
     # train
     if not args.priors_only:

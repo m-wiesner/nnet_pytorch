@@ -1,23 +1,10 @@
-# Copyright  2020
-
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-
-#  http://www.apache.org/licenses/LICENSE-2.0
-
-# THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-# KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
-# WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
-# MERCHANTABLITY OR NON-INFRINGEMENT.
-# See the Apache 2 License for the specific language governing permissions and
-# limitations under the License.
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .SGLDSampler import SGLDSampler
 from functools import partial
+import random
+from .LFMMIOnly import NumeratorFunction
 from .L2 import L2
 from collections import namedtuple
 import math
@@ -31,9 +18,19 @@ class Energy(nn.Module):
         super(Energy, self).__init__()
     
     def forward(self, model, sample):
-        output = model(sample)
-        objf = output[0].logsumexp(-1).sum()
+        x = model(sample)
+        objf = x[0].logsumexp(-1).sum()  
         return -objf 
+
+
+class TargetEnergy(nn.Module):
+    def __init__(self):
+        super(TargetEnergy,self).__init__()
+
+    def forward(self, model, sample, target=[]):
+        x = model(sample)[0]
+        target = torch.LongTensor(target).to(x.device).unsqueeze(2)
+        return -x.gather(2, target).sum()
 
 
 class EBMLoss(nn.Module):
@@ -47,12 +44,20 @@ class EBMLoss(nn.Module):
         parser.add_argument('--ebm-weight', type=float, default=1.0)
         parser.add_argument('--xent-weight', type=float, default=1.0)
         parser.add_argument('--l2-energy', type=float, default=0.0) 
+        parser.add_argument('--ent-reg', type=float, default=0.0)
+        parser.add_argument('--div-reg', type=float, default=0.0)
         parser.add_argument('--sgld-warmup', type=int, default=0)
         parser.add_argument('--sgld-decay', type=float, default=0.0)
         parser.add_argument('--sgld-thresh', type=float, default=1.1)
         parser.add_argument('--sgld-optim', type=str, default='sgd')
         parser.add_argument('--sgld-replay-correction', type=float, default=1.0)
         parser.add_argument('--sgld-weight-decay', type=float, default=1e-05)
+        parser.add_argument('--sgld-max-steps', type=int, default=150)
+        parser.add_argument('--sgld-init-real-decay', type=float, default=0.0)
+        parser.add_argument('--sgld-clip', type=float, default=1.0)
+        parser.add_argument('--sgld-init-val', type=float, default=1.0)
+        parser.add_argument('--sgld-epsilon', type=float, default=1e-04) 
+        parser.add_argument('--ebm-joint', action='store_true')
 
     @classmethod
     def build_objective(cls, conf):
@@ -65,16 +70,40 @@ class EBMLoss(nn.Module):
             ebm_weight=conf['ebm_weight'],
             xent_weight=conf['xent_weight'],
             l2_energy=conf['l2_energy'],
+            ent_reg=conf.get('ent_reg', 0.0),
+            div_reg=conf.get('div_reg', 0.0),
             sgld_warmup=conf['sgld_warmup'],
             sgld_decay=conf['sgld_decay'],
             sgld_thresh=conf['sgld_thresh'],
             sgld_optim=conf['sgld_optim'],
             sgld_replay_correction=conf['sgld_replay_correction'],
             sgld_weight_decay=conf['sgld_weight_decay'],
+            sgld_max_steps=conf['sgld_max_steps'],
+            sgld_init_real_decay=conf.get('sgld_init_real_decay', 0.0),
+            sgld_clip=conf['sgld_clip'],
+            sgld_init_val=conf.get('sgld_init_val', 1.0),
+            sgld_epsilon=conf.get('sgld_epsilon', 1e-04),
+            joint_model=conf.get('ebm_joint', False),
         )
+
+    @classmethod
+    def add_state_dict(cls, s1, s2, fraction, iteration = None):
+        return {
+            'warmup': s1['warmup'],
+            'decay': s1['decay'],
+            'init_real_decay': s1['init_real_decay'],
+            'num_warmup_updates': int(s1['num_warmup_updates'] + fraction * s2['num_warmup_updates']),
+            'num_decay_updates': int(s1['num_decay_updates'] + fraction * s2['num_decay_updates']),
+            'num_decay_real_updates': int(s1['num_decay_real_updates'] + fraction * s2['num_decay_real_updates']),
+            'sampler': SGLDSampler.add_state_dict(
+                s1['sampler'], s2['sampler'], fraction, iteration=iteration, 
+            ),
+        }
+
 
     def __init__(
         self,
+        sgld_init_val=1.0,
         sgld_buffer=10000,
         sgld_reinit_p=0.05,
         sgld_stepsize=1.0,
@@ -83,12 +112,19 @@ class EBMLoss(nn.Module):
         ebm_weight=1.0,
         xent_weight=1.0,
         l2_energy=0.0,
+        ent_reg=0.0,
+        div_reg=0.0,
         sgld_warmup=0.0,
         sgld_decay=0.0,
         sgld_thresh=0.001,
         sgld_optim='sgd',
         sgld_replay_correction=1.0,
         sgld_weight_decay=1e-05,
+        sgld_max_steps=150,
+        sgld_init_real_decay=0.0,
+        sgld_clip=1.0,
+        sgld_epsilon=1e-04,
+        joint_model=False,
     ):
         super(EBMLoss, self).__init__()
 
@@ -102,9 +138,11 @@ class EBMLoss(nn.Module):
             sgld_optim=sgld_optim,
             sgld_replay_correction=sgld_replay_correction,
             sgld_weight_decay=sgld_weight_decay,
+            sgld_max_steps=sgld_max_steps,
+            sgld_clip=sgld_clip,
+            sgld_init_val=sgld_init_val,
+            sgld_epsilon=sgld_epsilon,
         )
-        self.energy = Energy()
-        
         # All of this is scheduling the lfmmi weight
         self.ebm_weight = ebm_weight
         self.xent_weight = xent_weight
@@ -113,12 +151,17 @@ class EBMLoss(nn.Module):
         self.num_warmup_updates = 0 # Init to 1
         self.num_decay_updates = 0
         self.l2_energy = l2_energy
+        self.ent_reg = ent_reg
+        self.div_reg = div_reg
         self.sgld_thresh = sgld_thresh
+        self.num_decay_real_updates = 0
+        self.init_real_decay = sgld_init_real_decay
+        self.energy = Energy()
+        self.joint_model = joint_model
 
     def forward(self, model, sample, precomputed=None):
         losses = []
         B = sample.input.size(0)
-        model_energy = partial(self.energy, model)
         targets = sample.target 
         if precomputed is not None:
             x = precomputed
@@ -126,10 +169,14 @@ class EBMLoss(nn.Module):
             x = model(sample)[0]
         
         T = x.size(1)
-      
-        if (targets[0, 0] == -1 and self.ebm_weight > 0):  
-            sample_energy = -x.logsumexp(-1).sum() 
-            avg_sample_energy = sample_energy
+        model_energy = partial(self.energy, model)
+        sample_energy = -x.logsumexp(-1).sum()
+        avg_sample_energy = sample_energy
+     
+        is_unsup = (targets[0, 0] == -1) 
+        if (is_unsup and self.ebm_weight > 0) or (self.joint_model and self.ebm_weight > 0):  
+            sampling_model_energy = model_energy
+            ground_truth_energy = avg_sample_energy.data.item()
 
             # Figure out the weight to use
             if self.warmup > 0 and self.num_warmup_updates < self.warmup: 
@@ -144,10 +191,17 @@ class EBMLoss(nn.Module):
             model.eval()
             for p in model.parameters():
                 p.requires_grad = False
+
+            # For contrastive divergence initializing with real samples
+            real_weight = 1.0 - math.exp(
+                -self.init_real_decay * self.num_decay_real_updates
+            )
+            self.num_decay_real_updates += 1
+            
             generated_samples, k = self.sgld_sampler.update(
-                self.sgld_sampler.sample_like(sample),
-                model_energy,
-                sample_energy=avg_sample_energy.data.item(),
+                self.sgld_sampler.sample_like(sample, alpha=real_weight),
+                sampling_model_energy,
+                sample_energy=ground_truth_energy,
             )
             for p in model.parameters():
                 p.requires_grad = True
@@ -165,6 +219,7 @@ class EBMLoss(nn.Module):
             print('EBM: {}'.format(loss_ebm.data.item()), end=' ')
             print('Curr_Weight: {}'.format(curr_weight), end=' ')
             print('Num_steps: {}'.format(k), end=' ')
+            print('Real_Weight: {}'.format(real_weight), end=' ')
             loss_ebm *= curr_weight
             losses.append(loss_ebm)
                         
@@ -172,6 +227,21 @@ class EBMLoss(nn.Module):
                 loss_l2 = self.l2_energy * (expected_energy ** 2 + avg_sample_energy ** 2)
                 print('L2: {}'.format(loss_l2.data.item()), end=' ')
                 losses.append(loss_l2)
+
+            if self.joint_model:
+                print()
+
+            if self.ent_reg > 0:
+                loss_ent = -(F.softmax(x, dim=-1) * F.log_softmax(x, dim=-1)).sum()
+                print('Entropy: {}'.format(loss_ent.data.item()), end=' ')
+                print('Max item: {}'.format(x.argmax(dim=-1)[0:10, 0]), end=' ')
+                losses.append(self.ent_reg * loss_ent)
+
+            if self.div_reg > 0:
+                loss_div = (F.softmax(x.view(-1), dim=-1) * F.log_softmax(x.view(-1), dim=-1)).sum() / (x.size(0) * x.size(1))  
+                print('Diversity: {}'.format(loss_div.data.item()), end=' ')
+                losses.append(self.div_reg * loss_div)
+
 
         correct = None
         if targets[0, 0] != -1 and self.xent_weight > 0:
@@ -182,10 +252,93 @@ class EBMLoss(nn.Module):
             print('XENT: {}'.format(loss_xent.data.item()), end=' ')
             loss_xent *= self.xent_weight
             losses.append(loss_xent) 
-        
+            
         loss = sum(losses)
         
-        return loss, correct 
+        return loss, correct
 
+    def state_dict(self):
+        return {
+            'warmup': self.warmup,
+            'decay': self.decay,
+            'init_real_decay': self.init_real_decay,
+            'num_warmup_updates': self.num_warmup_updates,
+            'num_decay_updates': self.num_decay_updates,
+            'num_decay_real_updates': self.num_decay_real_updates,
+            'sampler': self.sgld_sampler.state_dict(),
+        }
 
+    def load_state_dict(self, state_dict):
+        self.sgld_sampler.load_state_dict(state_dict['sampler'])
+        self.warmup = state_dict['warmup']
+        self.decay = state_dict['decay']
+        self.num_warmup_updates = state_dict['num_warmup_updates']
+        self.num_decay_updates = state_dict['num_decay_updates']
+        self.num_decay_real_updates = state_dict.get('num_decay_real_updates', 0.0) # 0.0 for back compatibility 
+        self.init_real_decay = state_dict.get('init_real_decay', 0.0) # 0.0 for back compatibility
+
+    def generate_from_buffer(self):
+        return self.sgld_sampler.buffer
+    
+    def generate_from_model(self, model,
+        bs=32, cw=65, dim=64, left_context=10, right_context=5, device='cpu',
+        target=None,
+    ):
+        model.eval()
+        for p in model.parameters():
+            p.requires_grad = False
+
+        if target is not None:
+            energy = TargetEnergy()
+            model_energy = partial(energy, model, target=target) 
+        else:
+            model_energy = partial(self.energy, model)
+        x = torch.FloatTensor(bs, cw, dim).uniform_(-1, 1) 
+        x = x.to(device)
+        return self.sgld_sampler.update_generator(
+            self.sgld_sampler.sample_like(
+                Samples(
+                    x,
+                    {
+                        'left_context': left_context,
+                        'right_context': right_context
+                    }
+                )
+            ),
+            model_energy,
+            sample_energy=-100.0,
+        )
+
+    def decorrupt(self, model, sample, num_steps=None):
+        model.eval()
+        for p in model.parameters():
+            p.requires_grad = False
+
+        model_energy = partial(self.energy, model)
+        if num_steps is not None:
+            self.sgld_sampler.max_steps = num_steps
+        return self.sgld_sampler.update_generator(
+            (
+                sample.input,
+                torch.randint(0, 1, (0,)),
+                sample.metadata,
+                torch.zeros(sample.input.size(0)).to(sample.input.device),
+            ),
+            model_energy,
+            sample_energy=-100.0,
+        )
+
+    def sample_targets(self, bs, length):
+        f = open(self.ebm_tgt)
+        offsets = random.choices(self.tgt_lines, k=bs)
+        tgts = []
+        for offset in offsets:
+            idx = 1 + int((random.random() - 1e-09) * (offset[1] - (length-1)))
+            f.seek(offset[0])
+            # The first token is the uttid
+            tgts.append(
+                [int(pdf) for pdf in f.readline().split()[idx: idx + length]]
+            )
+        f.close()
+        return tgts            
 

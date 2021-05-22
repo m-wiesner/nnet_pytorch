@@ -159,6 +159,7 @@ def perturb(x, perturbations='none'):
         elif perturb_type[0] == 'time_mask':
             params = perturb_type[1]   
             width = params.get('width', 4) # 4 is the default
+            max_val = params.get('max_val', 0.0) # 0.0 is the default
             max_drop_percent = params.get('max_drop_percent', None)
             if max_drop_percent is None: 
                 num_holes = params.get('holes', 2) # 2 is the default
@@ -173,11 +174,15 @@ def perturb(x, perturbations='none'):
                 end = start + this_width
                 mask = (torch.arange(x.size(0)) >= start) * (torch.arange(x.size(0)) < end)  
                 mask = mask[:, None].expand(x.size())
-                x[mask] = 0.0
+                rand_vals = torch.rand_like(x).uniform_(-max_val, max_val) 
+                x *= ~mask
+                x += (rand_vals * mask)
+                #x[mask] = 0.0
         elif perturb_type[0] == 'freq_mask': 
             params = perturb_type[1]
             width = params.get('width', 4) # 4 is the default
             num_holes = params.get('holes', 2) # 2 is the default
+            max_val = params.get('max_val', 0.0) # 0.0 is the default
             for i in range(random.randint(0, num_holes)):
                 # The width has to be at most 1 less than x.size(-1) 
                 this_width = min(int(width * random.random()), x.size(-1) - 1)
@@ -185,7 +190,9 @@ def perturb(x, perturbations='none'):
                 end = start + this_width
                 mask = (torch.arange(x.size(-1)) >= start) * (torch.arange(x.size(-1)) < end)  
                 mask = mask[None, :].expand(x.size())
-                x[mask] = 0.0 
+                rand_vals = torch.rand_like(x).uniform_(-max_val, max_val) 
+                x *= ~mask
+                x += (rand_vals * mask)
         elif perturb_type[0] == 'gauss':
             params = perturb_type[1]
             std = params.get('std', 0.3) # 0.3 is the default   

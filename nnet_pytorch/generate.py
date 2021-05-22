@@ -12,7 +12,6 @@ import torch
 import models
 import objectives
 from collections import namedtuple
-from data_utils import move_to
 
 
 Samples = namedtuple('Samples', ['input', 'target', 'metadata']) 
@@ -23,10 +22,10 @@ def main():
     print(args)
   
     # Reserve the GPU if used in decoding. 
-    if args.gpu: 
-        # USER will need to set CUDA_VISIBLE_DEVICES here
-        cvd = subprocess.check_output(["/usr/local/bin/free-gpu", "-n", "1"]).decode().strip()
-        os.environ['CUDA_VISIBLE_DEVICES'] = cvd
+    #if args.gpu: 
+    #    # USER will need to set CUDA_VISIBLE_DEVICES here
+    #    cvd = subprocess.check_output(["/usr/local/bin/free-gpu", "-n", "1"]).decode().strip()
+    #    os.environ['CUDA_VISIBLE_DEVICES'] = cvd
     
     device = torch.device('cuda' if args.gpu else 'cpu')
     reserve_variable = torch.ones(1).to(device)

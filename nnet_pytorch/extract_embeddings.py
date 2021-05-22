@@ -11,7 +11,7 @@ import datasets
 import models
 from LRScheduler import LRScheduler
 from batch_generators import batches, evaluation_batches
-from IterationTypes import evaluate_energies
+from IterationTypes import decode_dataset
 import kaldi_io
 
 
@@ -47,7 +47,13 @@ def main():
     if not os.path.exists(targets):
         print("Dummy targets not found")
         sys.exit(1)
-    
+   
+    if args.chunk_width is not None and args.chunk_width > 0:
+        dataset_args['chunk_width'] = args.chunk_width
+    else:
+        # Use avg chunkwidth in decoding
+        dataset_args['chunk_width'] = (dataset_args['chunk_width'] + dataset_args.get('min_chunk_width', 1)) // 2
+
     dataset_args.update(
         {
             'data':args.datadir,
@@ -83,14 +89,14 @@ def forward(args, dataset, model, device='cpu'):
         utt_mat = []
         prev_key = b''
         generator = evaluation_batches(dataset)
-        for key, mat in decode_dataset(args, generator, model, device=device) 
+        for key, mat in decode_dataset(args, generator, model, device=device): 
             if len(utt_mat) > 0 and key != prev_key:
                 np.save(
-                    '{}/embeddings.{}'.format(args.dumpdir, prev_key.decode('utf-8'),
-                    np.concatenate(utt_mat, axis=0)[:utt_length, :],
+                    '{}/embeddings.{}'.format(args.dumpdir, prev_key.decode('utf-8')),
+                    np.concatenate(utt_mat, axis=0)[:utt_length, :]
                 )
                 utt_mat = []
-            utt_matt.append(mat)
+            utt_mat.append(mat)
             prev_key = key
             utt_length = dataset.utt_lengths[key] // dataset.subsample 
         if len(utt_mat) > 0:
@@ -106,6 +112,8 @@ def parse_arguments():
     parser.add_argument('--modeldir')
     parser.add_argument('--dumpdir')
     parser.add_argument('--checkpoint', default='final.mdl')
+    parser.add_argument('--chunk-width', type=int, default=None)
+    parser.add_argument('--output-idx', type=int, default=None)
     parser.add_argument('--gpu', action='store_true')
    
     # Args specific to different components
