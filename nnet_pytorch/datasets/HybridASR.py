@@ -317,7 +317,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                         'right_context': self.right_context,
                     }
                     input_tensor = torch.cat(inputs, dim=0).type(torch.float32)
-                    output_tensor = torch.LongTensor(output)
+                    output_tensor = torch.LongTensor(output[0:i, :])
                     yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
                     i = 0
                     inputs, output = [], []
@@ -330,7 +330,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                     'right_context': self.right_context,
                 }
                 input_tensor = torch.cat(inputs, dim=0).type(torch.float32)
-                output_tensor = torch.LongTensor(output)
+                output_tensor = torch.LongTensor(output[0:i, :])
                 yield HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
                 self.closure(set(split))
 

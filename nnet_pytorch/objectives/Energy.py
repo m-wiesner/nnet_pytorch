@@ -86,7 +86,7 @@ class LFMMIEnergy(Energy):
         
         T = x.size(1)
         x_lengths = torch.LongTensor([T] * x.size(0)).to(x.device)
-        energy = -ChainFunction.apply(x, x_lengths, den_graphs, self.leaky_hmm)
+        energy = -ChainFunction.apply(x, x_lengths, den_graphs, self.leaky_hmm, clamp=False)
         return energy    
     
 
@@ -103,7 +103,7 @@ class TargetEnergy(Energy):
             x = forward_no_grad(model, sample)[0]
         target = torch.LongTensor(target).to(x.device).unsqueeze(2)
         energy = -x.gather(2, target)
-        if reducetion == 'sum':
+        if reduction == 'sum':
             return energy.sum()
         elif reduction == 'none':
             return energy.sum(dim=1)
