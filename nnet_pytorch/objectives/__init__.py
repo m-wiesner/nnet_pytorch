@@ -18,11 +18,9 @@ for f in modules:
 OBJECTIVES = {
     'CrossEntropy': CrossEntropy.CrossEntropy,
     'LFMMI': LFMMI.ChainLoss,
+    'LFMMIOnly': LFMMIOnly.ChainLoss,
     'MultiLFMMI': MultiLFMMI.MultiChainLoss,
-    'SemisupLFMMI': SemisupLFMMI.ChainLoss,
-    'LFMMI_EBM': LFMMI_EBM.SequenceEBMLoss,
-    'CrossEntropy_EBM': CrossEntropy_EBM.EBMLoss,
-    'LFMMINum': LFMMIOnly.NumeratorFunction,
+    'Energy': EnergyObjective.EnergyLoss,
     'InfoNCE': InfoNCEOnly.InfoNCELoss,
     'SemisupInfoNCE': SemisupInfoNCE.InfoNCELoss,
     'InfoNCE2pass': InfoNCE2pass.InfoNCELoss,

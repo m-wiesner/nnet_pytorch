@@ -14,8 +14,10 @@ import torch
 import models
 import kaldi_io
 import objectives
+from objectives.Energy import TargetEnergy 
 from functools import partial
 from collections import namedtuple
+import socket
 
 
 Samples = namedtuple('Samples', ['input', 'target', 'metadata']) 
@@ -24,53 +26,50 @@ Samples = namedtuple('Samples', ['input', 'target', 'metadata'])
 def main():
     args = parse_arguments()
     print(args)
-  
+
+    hostname = socket.gethostname()  
     # Reserve the GPU if used in decoding. 
-    if args.gpu: 
+    if args.gpu and 'clsp' in hostname: 
         # USER will need to set CUDA_VISIBLE_DEVICES here
         cvd = subprocess.check_output(["/usr/local/bin/free-gpu", "-n", "1"]).decode().strip()
         os.environ['CUDA_VISIBLE_DEVICES'] = cvd
-    
+     
     device = torch.device('cuda' if args.gpu else 'cpu')
     reserve_variable = torch.ones(1).to(device)
    
-    # Load experiment configurations so that decoding uses the same parameters
-    # as training
+    # Load experiment configurations to use the same parameters as training
     conf = json.load(open(args.modeldir + '/conf.1.json'))
     conf['idim'] = args.idim
     if args.chunk_width:
         conf['chunk_width'] = args.chunk_width
+    
     # Build the model and send to the device (cpu or gpu). Generally cpu.
     objective = objectives.OBJECTIVES[conf['objective']].build_objective(conf)
-    objective.to(device)
     model = models.MODELS[conf['model']].build_model(conf)
-    model.to(device)
-
+    
     mdl = torch.load(
         os.path.sep.join([args.modeldir, args.modelname]),
         map_location=device
     )
     objective.load_state_dict(mdl['objective']) 
     model.load_state_dict(mdl['model'])  
-    buff = objective.generate_from_buffer()
-   
-    # Get the chunkwidth
-    cw = args.chunk_width
-    cw += args.left_context + args.right_context
     
+    model.to(device)
+    objective.to(device)
+   
     metadata = {
         'left_context': args.left_context,
         'right_context': args.right_context,
     }
-    obj = objectives.OBJECTIVES['LFMMINum']
+   
+    buff = objective.generate_from_buffer(sample)
     if args.target is not None:
-        target = torch.LongTensor(args.batchsize*[args.target])
+        target = args.batchsize*[args.target]
     else:
-        target = -1
         for i in range(args.top_k):
             idx = random.randint(0, buff.size(0) - 1)
             np.save(args.dumpdir + '/example_' + str(i), buff[idx].data.cpu().numpy())
-        sys.exit()
+        return
 
     # Start the sampling
     model.eval()
@@ -82,22 +81,15 @@ def main():
     # according to a specified output target sequence. The sequence could be
     # as long as T/subsample where T is the length of samples in the buffer.
     buff_scores = []
+    energy = TargetEnergy()
     for i in range(0, len(buff), args.batchsize):
         print("Iter: ", i)
         x = buff[i:i+args.batchsize]
         sample = Samples(x.to(device), target.to(device), metadata)
-        model_output = model(sample)
-        targets = sample.target
-        acoustic_costs = [
-            sum(
-                [
-                model_output[0][i, t, targets[i, t]]
-                        for t in range(model_output[0].size(1))
-                ]
-            ).data.item() for i in range(model_output[0].size(0))
-        ]
-        buff_scores.extend(acoustic_costs)
-    buff_idx = [i for _, i in sorted(zip(buff_scores, range(len(buff))), reverse=True)]
+        buff_scores.extend(
+            energy(model, sample, target=target, reduction='none').tolist()
+        )
+    buff_idx = [i for _, i in sorted(zip(buff_scores, range(len(buff))))]
     buff_good = buff[buff_idx[0:args.top_k]]
     buff_bad = buff[buff_idx[-args.top_k:]]
     np.save(
@@ -110,46 +102,6 @@ def main():
     )
 
 
-
-def load_source(args, cw):
-    if args.source is not None:
-        utts_dict = kaldi_io.read_mat_scp(args.source)
-        i = 0
-        mats = []
-        while i < args.num_segments:
-            key, mat = next(utts_dict, None)
-            if ((mat.shape[0] - cw) < 0):
-                start_frame = random.randint(0, mat.shape[0] - cw)
-                mats.append(mat)
-                i += 1
-        x_source = torch.from_numpy(np.array(mats).astype(np.float32))
-        x = perturb(x_source, args)
-    else:
-        x = torch.FloatTensor(args.num_segments, cw, args.idim).uniform_(-1, 1)
-    return x
-
-
-def perturb(x, args):
-    if args.perturbation is 'salt_pepper':
-        x *= torch.FloatTensor(x.size()).random_(0, 2)
-    elif args.perturbation is 'time_mask':
-        width=20
-        start = random.randint(0, x.size(1) - width)
-        end = start + width
-        mask = (torch.arange(x.size(1)) >= start) * (torch.arange(x.size(1)) < end)  
-        mask = mask[None, :, None].expand(x.size())
-        x[mask] = 0.0
-    elif args.perturbationis is 'freq_mask': 
-        width=10
-        start = random.randint(0, x.size(0) - width)
-        end = start + width
-        mask = (torch.arange(x.size(2)) >= start) * (torch.arange(x.size(2)) < end)  
-        mask = mask[None, None, :].expand(x.size())
-        x[mask] = 0.0 
-    else:
-        return x 
-
-
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--target', nargs='+', type=int,
@@ -157,10 +109,6 @@ def parse_arguments():
     )
     parser.add_argument('--idim', type=int, default=80,
         help='The input dimension of features'
-    )
-    parser.add_argument('--chunk-width', type=int, default=10,
-        help='The width of the speech chunk. The target sequence will be '
-        'length chunk_width / subsample'
     )
     parser.add_argument('--left-context', type=int, default=40,
         help='extra left context on the input features'

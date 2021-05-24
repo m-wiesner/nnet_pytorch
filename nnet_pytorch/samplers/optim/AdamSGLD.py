@@ -1,9 +1,9 @@
 import math
 import torch
-from .optimizer import Optimizer
+from torch.optim.optimizer import Optimizer, required
 
 
-class SGLDAdam(Optimizer):
+class AdamSGLD(Optimizer):
     r"""Implements Adam algorithm.
 
     It has been proposed in `Adam: A Method for Stochastic Optimization`_.
@@ -26,6 +26,22 @@ class SGLDAdam(Optimizer):
     .. _On the Convergence of Adam and Beyond:
         https://openreview.net/forum?id=ryQu7f-RZ
     """
+    @staticmethod
+    def add_args(parser):
+        parser.add_argument('--sgld-stepsize', type=float, default=10.0)
+        parser.add_argument('--sgld-noise', type=float, default=0.001)
+        parser.add_argument('--sgld-replay-correction', type=float, default=0.5)
+        parser.add_argument('--sgld-weight-decay', type=float, default=0.0)
+
+    @classmethod
+    def build_partial(cls, conf):
+        return partial(
+            SGLD.__init__,
+            lr=conf['sgld_stepsize'],
+            noise=conf['sgld_noise'],
+            stepscale=conf['sgld_replay_correction'],
+            weight_decay=conf['sgld_weight_deccay'],
+        )
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
                  weight_decay=0, amsgrad=False, noise=0.005, stepscale=1.0):

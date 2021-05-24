@@ -12,18 +12,19 @@ import models
 import objectives
 from batch_generators import evaluation_batches
 from IterationTypes import decorrupt_dataset
-import kaldi_io
+import socket
 
 
 def main():
     args = parse_arguments()
     print(args)
 
+    hostname = socket.gethostname()  
     # Reserve the GPU if used in decoding. In general it won't be.        
-    #if args.gpu:
-    #    # User will need to set CUDA_VISIBLE_DEVICES here
-    #    cvd = subprocess.check_output(["/usr/local/bin/free-gpu", "-n", "1"]).decode().strip()
-    #    os.environ['CUDA_VISIBLE_DEVICES'] = cvd
+    if args.gpu and 'clsp' in hostname:
+        # User will need to set CUDA_VISIBLE_DEVICES here
+        cvd = subprocess.check_output(["/usr/local/bin/free-gpu", "-n", "1"]).decode().strip()
+        os.environ['CUDA_VISIBLE_DEVICES'] = cvd
     
     device = torch.device('cuda' if args.gpu else 'cpu')
     reserve_variable = torch.ones(1).to(device)
@@ -43,10 +44,9 @@ def main():
     # need the targets or use them. The keyword argument validation=0, is
     # because we are decoding and do not have the targets so validation does
     # not make sense in this context.
-    targets = os.path.join(args.datadir, 'pdfid.{}.tgt'.format(str(subsample_val)))
+    targets = args.targets 
     if not os.path.exists(targets):
-        print("Dummy targets not found")
-        sys.exit(1)
+        raise IOError(f"{targets} not found.")
     
     dataset_args.update(
         {
@@ -132,6 +132,7 @@ def parse_arguments():
     parser.add_argument('--datadir')
     parser.add_argument('--modeldir')
     parser.add_argument('--dumpdir')
+    parser.add_argument('--targets', type=str, default=None)
     parser.add_argument('--checkpoint', default='final.mdl')
     parser.add_argument('--gpu', action='store_true')
     parser.add_argument('--batchsize', type=int, default=256)
@@ -141,7 +142,6 @@ def parse_arguments():
     parser.add_argument('--right-context', type=int, default=5)
     parser.add_argument('--num-steps', type=int, default=None)
     parser.add_argument('--perturb', type=str, default='none')
-
    
     # Args specific to different components
     args, leftover = parser.parse_known_args()

@@ -74,7 +74,7 @@ for e in `seq ${start_epoch} ${num_epochs}`; do
   
   # Cleanup
   rm_idx=$((e - keep_last - 1)) 
-  if [ ${rm_idx} -gt 0 ] && [ $((${rm_idx}%${keep_every})) != 0 ]; then
+  if [ ${rm_idx} -gt 0 ] && [ $((${rm_idx}%${keep_every})) != 0 ] && [ -f ${odir}/${rm_idx}.mdl ]; then
     rm ${odir}/${rm_idx}.mdl
   fi
 

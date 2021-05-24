@@ -172,7 +172,7 @@ class HybridAsrDataset(NnetPytorchDataset):
             len(self.targets[utt_name]),
             target_start + self.curr_subsample_chunk_width,
         )
-                
+             
         target = self.targets[utt_name][target_start: target_end]
         
         # Get the lower and upper boundaries for the window
@@ -295,6 +295,10 @@ class HybridAsrDataset(NnetPytorchDataset):
             end = start + self.utt_lengths[u] 
             i = 0
             inputs, output = [], []
+            output = torch.zeros(
+                (self.curr_batchsize, self.curr_subsample_chunk_width),
+                dtype=torch.int64
+            )
             name, split = [], []
             for idx in range(start, end, stride):
                 sample = self[(split_idx, utt_idx, idx)]
@@ -303,7 +307,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                 input_tensor_idx = torch.from_numpy(sample.input)
                 perturb(input_tensor_idx, perturbations=self.perturb_type)
                 inputs.append(input_tensor_idx.unsqueeze(0)) 
-                output.extend(sample.target)
+                output[i, 0:len(sample.target)] = torch.LongTensor(sample.target) 
                 i += 1
                 # Yield the minibatch when this one is full 
                 if i == self.curr_batchsize:

@@ -11,6 +11,16 @@ import sys
 
 
 def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'):
+    '''
+        The training interator: It takes
+             - a minibatch generator
+             - a model
+             - a training objective
+             - an optimizer
+             - a learning rate scheduler
+        
+        It defines how to use these components to perform 1 epoch of training.
+    '''
     total_loss = 0.0
     move_to = datasets.DATASETS[args.datasetname].move_to
     dataset_args = eval(args.datasets)
@@ -74,26 +84,13 @@ def validate(args, generator, model, device='cpu'):
     return avg_loss, correct
 
 
-#def decode_dataset(args, generator, model, device='cpu'):
-#    move_to = datasets.DATASETS[args.datasetname].move_to 
-#    for i, b in enumerate(generator):
-#        uttname = b.metadata['name'][0]
-#        b = move_to(b, device)
-#        model_output = model(b)
-#        # Chain system
-#        if 'LFMMI' in args.objective:
-#            output = model_output[0].clamp(-30, 30)
-#            lprobs = output.contiguous().view(-1, output.size(2))
-#        ## XENT
-#        elif 'CrossEntropy' in args.objective:
-#            lprobs = F.log_softmax(
-#                model_output[0], dim=-1
-#            ).view(-1, model_output[0].size(-1))
-#
-#        yield uttname, lprobs.detach().cpu().numpy()
-
-
 def decode_dataset(args, generator, model, device='cpu', output_idx=0):
+    '''
+        Decoding Iterator: It takes
+            - a minibatch generator
+            - a model
+        and defines how to produce model outputs from the minibatches.        
+    '''
     move_to = datasets.DATASETS[args.datasetname].move_to 
     for i, b in enumerate(generator):
         uttname = b.metadata['name'][0]
@@ -116,11 +113,19 @@ def decode_dataset(args, generator, model, device='cpu', output_idx=0):
 
 
 def decorrupt_dataset(args, generator, model, objective, device='cpu'):
+    '''
+        Decorruption iterator: It takes
+            - a minibatch generator
+            - a model
+            - a generative objective (with a decorrupt function)
+        and returns decorrupted verions of the input.
+    '''
     move_to = datasets.DATASETS[args.datasetname].move_to 
     for i, b in enumerate(generator):
         uttname = b.metadata['name'][0]
+        targets = None if b.target[0, 0] == -1 else b.target.tolist()
         b = move_to(b, device)
-        for sgld_iter, decorrupted in enumerate(objective.decorrupt(model, b, num_steps=args.num_steps)):
+        for sgld_iter, decorrupted in enumerate(objective.decorrupt(model, b, num_steps=args.num_steps, targets=targets)):
             yield uttname, sgld_iter, decorrupted.contiguous().view(-1, decorrupted.size(2)).detach().cpu().numpy()
 
 

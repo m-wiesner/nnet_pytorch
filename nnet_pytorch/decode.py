@@ -1,15 +1,12 @@
 #!/usr/bin/env python
 
 import os
-import sys
 import argparse
 import json
-import subprocess
 import numpy as np
 import torch
 import datasets
 import models
-from LRScheduler import LRScheduler
 from batch_generators import evaluation_batches
 from IterationTypes import decode_dataset
 import kaldi_io
@@ -19,13 +16,8 @@ def main():
     args = parse_arguments()
     print(args)
 
-    # Reserve the GPU if used in decoding. In general it won't be.        
-    if args.gpu:
-        # User will need to set CUDA_VISIBLE_DEVICES here
-        cvd = subprocess.check_output(["/usr/bin/free-gpu", "-n", "1"]).decode().strip()
-        os.environ['CUDA_VISIBLE_DEVICES'] = cvd
-    
-    device = torch.device('cuda' if args.gpu else 'cpu')
+    # Only supported on cpu for now 
+    device = torch.device('cpu')
     reserve_variable = torch.ones(1).to(device)
 
     # Load experiment configurations so that decoding uses the same parameters
@@ -45,8 +37,7 @@ def main():
     # not make sense in this context.
     targets = os.path.join(args.datadir, 'pdfid.{}.tgt'.format(str(subsample_val)))
     if not os.path.exists(targets):
-        print("Dummy targets not found")
-        sys.exit(1)
+        raise IOError('Dummy targets not found')
         
     if args.perturb is not None:
         dataset_args['perturb_type'] = args.perturb
@@ -176,6 +167,7 @@ def parse_arguments():
     parser.add_argument('--perturb', type=str, default=None) 
     parser.add_argument('--chunk-width', type=int, default=None)
     parser.add_argument('--output-idx', type=int, default=0)
+    
     # Args specific to different components
     args, leftover = parser.parse_known_args()
     conf = json.load(open(args.modeldir + '/conf.1.json'))
