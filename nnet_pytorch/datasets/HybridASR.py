@@ -23,7 +23,8 @@ class HybridAsrDataset(NnetPytorchDataset):
     def build_dataset(cls, ds):
         perturb_type = ds.get('perturb_type', 'none')
         random_cw = ds.get('random_cw', False)
-        min_chunk_width = ds.get('min_chunk_width', 8)  
+        min_chunk_width = ds.get('min_chunk_width', 8)
+        cw_curriculum = ds.get('cw_curriculum', 0.0)
         return HybridAsrDataset(
             ds['data'], ds['tgt'],
             left_context=ds['left_context'],
@@ -36,6 +37,7 @@ class HybridAsrDataset(NnetPytorchDataset):
             perturb_type=perturb_type,
             random_cw=random_cw,
             min_chunk_width=min_chunk_width,
+            chunk_width_curriculum=cw_curriculum,
         )
     
     def __init__(self, datadir, targets,
@@ -44,6 +46,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         batchsize=128, mean=True, var=True,
         utt_subset=None, subsample=1,
         perturb_type='none', random_cw=False, min_chunk_width=8,
+        chunk_width_curriculum=0.0,
     ):
         # Load CMVN
         cmvn_scp = os.path.sep.join((datadir, 'cmvn.scp'))
@@ -53,6 +56,8 @@ class HybridAsrDataset(NnetPytorchDataset):
         self.subsample = subsample
         self.spk2cmvn = load_cmvn(cmvn_scp)
         self.batchsize = batchsize
+        self.epoch = 0
+        self.cw_curriculum = chunk_width_curriculum
         
         # Load UTT2SPK
         utt2spk = os.path.sep.join((datadir, 'utt2spk'))
@@ -117,9 +122,11 @@ class HybridAsrDataset(NnetPytorchDataset):
             range(0, self.chunk_width, self.subsample)
         )
         self.random_cw = random_cw
-        self.curr_chunk_width = chunk_width
+        self.curr_chunk_width = chunk_width if self.cw_curriculum == 0.0 else min_chunk_width
         self.curr_subsample_chunk_width = self.subsample_chunk_width
         self.curr_batchsize = self.batchsize
+        self.curr_left_context = left_context
+        self.curr_right_context = right_context
          
         # Get the subset of speakers we actually want to use (important for evaluation)
         if utt_subset is not None:
@@ -127,7 +134,7 @@ class HybridAsrDataset(NnetPytorchDataset):
                 self.utt_subset = load_utt_subset(f)
         else:
             self.utt_subset = [i for i in self.targets]
-
+        
     def free_ram(self, split_idx):
         '''
             This function flushes the memmap memory buffer for a particular 
@@ -176,21 +183,20 @@ class HybridAsrDataset(NnetPytorchDataset):
         target = self.targets[utt_name][target_start: target_end]
         
         # Get the lower and upper boundaries for the window
-        lower_boundary = max(offset, idx - self.left_context)
+        lower_boundary = max(offset, idx - self.curr_left_context)
         upper_boundary = min(
-            offset + utt_length, idx + self.right_context + self.curr_chunk_width
+            offset + utt_length, idx + self.curr_right_context + self.curr_chunk_width
         )
 
         x = np.array(self.data[split_idx][lower_boundary: upper_boundary, :])
                 
         # Apply cmvn
-        if self.mean or (self.var != 'none'):
-            x = self.apply_cmvn(x, utt_name, mean=self.mean, var=self.var)
+        x = self.apply_cmvn(x, utt_name, mean=self.mean, var=self.var)
         
         # This is solving the edge case needed when the beginning
         # and end frames need to be padded with the appropriate contexts
-        left_zero_pad = max(0, self.left_context - (idx - lower_boundary))
-        right_zero_pad = max(0, self.right_context + (self.curr_chunk_width - 1) - ((upper_boundary-1) - idx))
+        left_zero_pad = max(0, self.curr_left_context - (idx - lower_boundary))
+        right_zero_pad = max(0, self.curr_right_context + (self.curr_chunk_width - 1) - ((upper_boundary-1) - idx))
         if left_zero_pad > 0 or right_zero_pad > 0: 
             x = np.pad(
                 x, ((left_zero_pad, right_zero_pad,), (0, 0)),
@@ -233,13 +239,31 @@ class HybridAsrDataset(NnetPytorchDataset):
             )
         curr_chunk_length = self.chunk_width + self.left_context + self.right_context
         new_chunk_length = self.curr_chunk_width + self.left_context + self.right_context
-        self.curr_batchsize = (self.batchsize * curr_chunk_length) // new_chunk_length 
+        self.curr_batchsize = (self.batchsize * curr_chunk_length) // new_chunk_length  
+        self.curr_left_context = self.left_context
+        self.curr_right_context = self.right_context
 
-    
+    def update_cw_curriculum(self):
+        curr_chunk_length = self.curr_chunk_width + self.curr_left_context + self.curr_right_context
+        slope = self.cw_curriculum * (self.chunk_width - self.min_chunk_width)
+        prev_extra_context = curr_chunk_length - (self.curr_chunk_width)
+        self.curr_chunk_width = min(int(slope * self.epoch) + self.min_chunk_width, self.chunk_width)
+        self.curr_subsample_chunk_width = len(
+                range(0, self.curr_chunk_width, self.subsample)
+            )
+        extra_context = curr_chunk_length - self.curr_chunk_width
+        self.curr_right_context = extra_context // 2
+        self.curr_left_context = extra_context // 2
+        while self.curr_left_context + self.curr_right_context < extra_context:
+            self.curr_left_context += 1
+
+
     def minibatch(self):
         if self.random_cw:
             self.update_random_cw()
-        batchlength = self.left_context + self.right_context + self.curr_chunk_width
+        elif self.cw_curriculum > 0:
+            self.update_cw_curriculum() 
+        batchlength = self.curr_left_context + self.curr_right_context + self.curr_chunk_width
         batchdim = self.data_shape[0][1]
         # Initialize batch
         input_tensor = torch.zeros((self.curr_batchsize, batchlength, batchdim))
@@ -277,8 +301,8 @@ class HybridAsrDataset(NnetPytorchDataset):
         
         metadata = {
             'name': name,
-            'left_context': self.left_context,
-            'right_context': self.right_context,
+            'left_context': self.curr_left_context,
+            'right_context': self.curr_right_context,
         }
 
         output_tensor = torch.LongTensor(output)
@@ -286,7 +310,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         return HybridAsrDataset.Minibatch(input_tensor, output_tensor, metadata) 
         
 
-    def evaluation_batches(self, stride=None):
+    def evaluation_batches(self, stride=None, delay=0):
         if stride is None:
             stride = self.chunk_width
         for u in self.utt_subset:
@@ -300,21 +324,26 @@ class HybridAsrDataset(NnetPytorchDataset):
                 dtype=torch.int64
             )
             name, split = [], []
-            for idx in range(start, end, stride):
+            for idx in range(start + delay, end, stride):
                 sample = self[(split_idx, utt_idx, idx)]
                 name.append(sample.metadata['name'])
                 split.append(split_idx)
                 input_tensor_idx = torch.from_numpy(sample.input)
                 perturb(input_tensor_idx, perturbations=self.perturb_type)
                 inputs.append(input_tensor_idx.unsqueeze(0)) 
-                output[i, 0:len(sample.target)] = torch.LongTensor(sample.target) 
+                try:
+                    output[i, 0:len(sample.target)] = torch.LongTensor(sample.target) 
+                except:
+                    import sys
+                    print("Target: ", sample.target, "len(sample.target) = ", len(sample.target), file=sys.stderr)
+                    raise Exception
                 i += 1
                 # Yield the minibatch when this one is full 
                 if i == self.curr_batchsize:
                     metadata = {
                         'name': name, 
-                        'left_context': self.left_context,
-                        'right_context': self.right_context,
+                        'left_context': self.curr_left_context,
+                        'right_context': self.curr_right_context,
                     }
                     input_tensor = torch.cat(inputs, dim=0).type(torch.float32)
                     output_tensor = torch.LongTensor(output[0:i, :])
@@ -326,8 +355,8 @@ class HybridAsrDataset(NnetPytorchDataset):
             if i > 0:
                 metadata = {
                     'name': name, 
-                    'left_context': self.left_context,
-                    'right_context': self.right_context,
+                    'left_context': self.curr_left_context,
+                    'right_context': self.curr_right_context,
                 }
                 input_tensor = torch.cat(inputs, dim=0).type(torch.float32)
                 output_tensor = torch.LongTensor(output[0:i, :])

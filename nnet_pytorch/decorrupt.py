@@ -90,7 +90,8 @@ def decorrupt(args, dataset, model, objective, device='cpu'):
     utt_mats = {} 
     prev_key = b''
     stride = args.left_context + args.chunk_width + args.right_context
-    generator = evaluation_batches(dataset, stride=stride)
+    delay = args.left_context
+    generator = evaluation_batches(dataset, stride=stride, delay=delay)
     # Each minibatch is guaranteed to have at most 1 utterance. We need
     # to append the output of subsequent minibatches corresponding to
     # the same utterances. These are stored in ``utt_mat'', which is
@@ -99,8 +100,9 @@ def decorrupt(args, dataset, model, objective, device='cpu'):
     # probabilities are normalized (subtraction in log space), by the
     # log priors in order to produce pseudo-likelihoods useable for
     # for lattice generation with latgen-faster-mapped
-    for key, sgld_iter, mat in decorrupt_dataset(args, generator, model, objective, device=device):
-        print(key, sgld_iter)
+    for i, (key, sgld_iter, mat, targets) in enumerate(decorrupt_dataset(args, generator, model, objective, device=device)):
+        print(f"key: {key} sgld_iter: {sgld_iter}")
+        print(f"targets: {targets}")
         if sgld_iter not in utt_mats:
             utt_mats[sgld_iter] = []
 

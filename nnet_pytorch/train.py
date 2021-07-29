@@ -24,17 +24,9 @@ def main():
     args = parse_arguments() 
     print(args)
   
-    # Get GPU and reserve
-    #if args.gpu:
-    #    # User will need to set CUDA_VISIBLE_DEVICES here
-    #    p = subprocess.run(
-    #        ["nvidia-smi", "-L"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    #    )
-    #    cvd = subprocess.check_output(["/usr/local/bin/free-gpu", "-n", "1"]).decode().strip()
-    #    os.environ['CUDA_VISIBLE_DEVICES'] = cvd
-
     device = torch.device('cuda' if args.gpu else 'cpu')
     reserve_variable = torch.ones(1).to(device)
+    print("Device: ", device)
 
     # Set the random seed
     torch.manual_seed(args.seed)
@@ -87,6 +79,7 @@ def main():
     model = models.MODELS[args.model].build_model(conf)
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("Traning model with ", total_params, " parameters.")
+    print(model) 
     objective = objectives.OBJECTIVES[args.objective].build_objective(conf)
 
     if args.resume is not None:
@@ -130,12 +123,15 @@ def main():
         lr_sched = LRScheduler(optimizer, args)
         lr_sched.load_state_dict(mdl['lr_sched'])
         conf['epoch'] = mdl['epoch']
+        for ds in datasets_list:
+            ds.epoch = mdl['epoch']
+
     else:
         lr_sched = LRScheduler(optimizer, args)
         # Get priors if we are not resuming
         if args.objective == 'CrossEntropy':
             get_priors(args, datasets_list[0])
-    
+        
     # Initializing with a pretrained model
     if args.init is not None:
         mdl = torch.load(args.init, map_location=device)
@@ -143,9 +139,16 @@ def main():
         #    if not any([x in name for x in ['xent_layer','linear','final_affine']]):
         #        p.data.copy_(mdl['model'][name].data)
         for name, p in model.named_parameters():
-            if 'xent_layer' not in name and 'linear' not in name: 
-                if name in mdl['model']: 
-                    p.data.copy_(mdl['model'][name].data)
+            #if 'xent_layer' not in name and 'linear' not in name: 
+            #if not any([x in name for x in ['xent_layer', 'linear', 'final_affine']]):
+            if name in mdl['model']: 
+                p.data.copy_(mdl['model'][name].data)
+    
+    # Optionally freeze model parameters other than the output layer
+    if args.freeze:
+        for name, p in model.named_parameters():
+            if not any([x in name for x in ['xent_layer', 'linear', 'final_affine']]):
+                p.requires_grad=False 
   
     # train
     if not args.priors_only:
@@ -184,12 +187,6 @@ def train(args, conf, datasets, model, objective, optimizer, lr_sched, device, v
             avg_loss_val, avg_acc_val = validate(
                 args, valid_generator, model, device=device,
             )
-        
-        #if args.objective in ('CrossEntropy'):
-        #    avg_loss_val, avg_acc_val = validate(
-        #        args, valid_generator, model, device=device
-        #    )
-        #    print("Validation Loss: ", avg_loss_val, "Acc: ", avg_acc_val)
         
         # Save checkpoint
         state_dict = {
@@ -283,6 +280,7 @@ def parse_arguments():
             'LFMMI',
             'LFMMIOnly',
             'MultiLFMMI',
+            'Multitask',
             'InfoNCE',
             'SemisupInfoNCE',
             'InfoNCE2pass',
@@ -299,6 +297,8 @@ def parse_arguments():
     parser.add_argument('--gpu', action='store_true')
     parser.add_argument('--resume', default=None)
     parser.add_argument('--init', default=None)
+    parser.add_argument('--fp16', action='store_true')
+    parser.add_argument('--freeze', action='store_true')
 
     # Args specific to different components. See model,LRScheduler,dataset}.py.
     args, leftover = parser.parse_known_args()  

@@ -50,13 +50,19 @@ def main():
         # Use avg chunkwidth in decoding
         dataset_args['chunk_width'] = (dataset_args['chunk_width'] + dataset_args.get('min_chunk_width', 1)) // 2
 
+    if args.left_context is not None:
+        dataset_args['left_context'] = args.left_context
+    if args.right_context is not None:
+        dataset_args['right_context'] = args.right_context
+
     dataset_args.update(
         {
-            'data':args.datadir,
-            'tgt':targets,
+            'data': args.datadir,
+            'tgt': targets,
             'subsample': subsample_val,
             'utt_subset': args.utt_subset,
             'random_cw': False,
+            'cw_curriculum': 0.0,
         }
     )
 
@@ -64,6 +70,7 @@ def main():
     print(conf) 
     # Build the model and send to the device (cpu or gpu). Generally cpu.
     model = models.MODELS[conf['model']].build_model(conf)
+    model.normalize_output = False
     model.to(device)
   
     # Load the model from experiment checkpoint 
@@ -166,6 +173,8 @@ def parse_arguments():
     parser.add_argument('--batchsize', type=int, default=256)
     parser.add_argument('--perturb', type=str, default=None) 
     parser.add_argument('--chunk-width', type=int, default=None)
+    parser.add_argument('--left-context', type=int, default=None)
+    parser.add_argument('--right-context', type=int, default=None)
     parser.add_argument('--output-idx', type=int, default=0)
     
     # Args specific to different components

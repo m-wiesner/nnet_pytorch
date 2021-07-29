@@ -18,7 +18,7 @@ class Energy(nn.Module):
     def __init__(self):
         super(Energy, self).__init__()
     
-    def forward(self, model, sample, precomputed=None):
+    def forward(self, model, sample, precomputed=None, normalize=False):
         '''
             Defines the interface for an energy of a sample given a model.
             There are multiple ways to define the energy, but they require
@@ -39,14 +39,20 @@ class ClassificationEnergy(Energy):
     def build_energy(cls, conf):
         return ClassificationEnergy()
 
-    def forward(self, model, sample, precomputed=None):
+    def forward(self, model, sample, precomputed=None, normalize=False):
         if precomputed is not None:
             x = precomputed
         else:
             x = forward_no_grad(model, sample)[0]
-        
-        T = x.size(1)
-        energy = -x.logsumexp(-1).sum() / T
+       
+        if normalize:
+            #x_ = nn.functional.normalize(x, p=float('inf'), dim=-1)
+            x_ = nn.functional.layer_norm(x, (x.size(-1),))
+        else:
+            x_ = x.clone()
+
+        T = x_.size(1)
+        energy = -x_.logsumexp(-1).sum() / T
         return energy
 
 
@@ -77,16 +83,21 @@ class LFMMIEnergy(Energy):
         )
         self.leaky_hmm = leaky_hmm
         
-    def forward(self, model, sample, precomputed=None):
+    def forward(self, model, sample, precomputed=None, normalize=False):
         den_graphs = ChainGraphBatch(self.graph, sample.input.size(0))
         if precomputed is not None:
             x = precomputed
         else:
             x = forward_no_grad(model, sample)[0]
+        if normalize:
+            #x_ = nn.functional.normalize(x, p=float('inf'), dim=-1)
         
-        T = x.size(1)
-        x_lengths = torch.LongTensor([T] * x.size(0)).to(x.device)
-        energy = -ChainFunction.apply(x, x_lengths, den_graphs, self.leaky_hmm, clamp=False)
+            x_ = nn.functional.layer_norm(x, (x.size(-1),))
+        else:
+            x_ = x.clone()
+        T = x_.size(1)
+        x_lengths = torch.LongTensor([T] * x_.size(0)).to(x_.device)
+        energy = -ChainFunction.apply(x_, x_lengths, den_graphs, self.leaky_hmm, False) / T
         return energy    
     
 
@@ -96,13 +107,20 @@ class TargetEnergy(Energy):
         energy is the sum of the values of outputs nodes y_t for each time
         t=0 to T-1, where T is the length of the sequence.
     '''
-    def forward(self, model, sample, precomputed=None, target=[], reduction='sum'):
+    def forward(self, model, sample, precomputed=None, normalize=False, target=[], reduction='sum'):
         if precomputed is not None:
             x = precomputed
         else:
             x = forward_no_grad(model, sample)[0]
-        target = torch.LongTensor(target).to(x.device).unsqueeze(2)
-        energy = -x.gather(2, target)
+        T = x.size(1)
+        if normalize:
+            #x_ = nn.functional.normalize(x, p=float('inf'), dim=-1)
+        
+            x_ = nn.functional.layer_norm(x, (x.size(-1),))
+        else:
+            x_ = x.clone()
+        target = torch.LongTensor(target).to(x_.device).unsqueeze(2)
+        energy = -x_.gather(2, target) / T
         if reduction == 'sum':
             return energy.sum()
         elif reduction == 'none':
@@ -119,11 +137,17 @@ def no_grad(fun):
     def wrapper(*args):
         model = args[0]
         sample = args[1]
+        requires_grad_list = []
         for p in model.parameters():
-            p.requires_grad = False 
+            if p.requires_grad:
+                requires_grad_list.append(True)
+                p.requires_grad = False 
+            else:
+                requires_grad_list.append(False)
         x = fun(model, sample)
-        for p in model.parameters():
-            p.requires_grad = True
+        for i, p in enumerate(model.parameters()):
+            if requires_grad_list[i]:
+                p.requires_grad = True
         return x
     return wrapper
 

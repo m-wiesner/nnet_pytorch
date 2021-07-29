@@ -28,6 +28,7 @@ class CrossEntropy(torch.nn.Module):
         lprobs = lprobs.view(-1, lprobs.size(-1))
         loss = F.nll_loss(lprobs, sample.target.view(-1), reduction='mean')
         correct = torch.sum(lprobs.argmax(1) == sample.target.view(-1))
+        print("CrossEntropyAcc: ", correct.data.item() / sample.target.view(-1).size(0), end=' ')
         return loss, correct
 
 

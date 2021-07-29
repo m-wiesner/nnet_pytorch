@@ -20,7 +20,7 @@ from collections import namedtuple
 import socket
 
 
-Samples = namedtuple('Samples', ['input', 'target', 'metadata']) 
+Samples = namedtuple('Samples', ['input', 'metadata']) 
 
 
 def main():
@@ -62,13 +62,14 @@ def main():
         'right_context': args.right_context,
     }
    
-    buff = objective.generate_from_buffer(sample)
+    buff = objective.generate_from_buffer()
+    cl = args.chunk_width + args.left_context + args.right_context
     if args.target is not None:
         target = args.batchsize*[args.target]
     else:
         for i in range(args.top_k):
             idx = random.randint(0, buff.size(0) - 1)
-            np.save(args.dumpdir + '/example_' + str(i), buff[idx].data.cpu().numpy())
+            np.save(args.dumpdir + '/example_' + str(i), buff[idx, :cl, :args.idim].data.cpu().numpy())
         return
 
     # Start the sampling
@@ -84,14 +85,17 @@ def main():
     energy = TargetEnergy()
     for i in range(0, len(buff), args.batchsize):
         print("Iter: ", i)
-        x = buff[i:i+args.batchsize]
-        sample = Samples(x.to(device), target.to(device), metadata)
-        buff_scores.extend(
-            energy(model, sample, target=target, reduction='none').tolist()
-        )
-    buff_idx = [i for _, i in sorted(zip(buff_scores, range(len(buff))))]
-    buff_good = buff[buff_idx[0:args.top_k]]
-    buff_bad = buff[buff_idx[-args.top_k:]]
+        x = buff[i:i+args.batchsize, :cl, :args.idim]
+        sample = Samples(x.to(device), metadata)
+        try:
+            buff_scores.extend(
+                energy(model, sample, target=target, reduction='none').tolist()
+            )
+        except:
+            continue;
+    buff_idx = [i for _, i in sorted(zip(buff_scores, range(len(buff_scores))))]
+    buff_good = buff[0:len(buff_scores), :cl, :args.idim][buff_idx[0:args.top_k]]
+    buff_bad = buff[0:len(buff_scores), :cl, :args.idim][buff_idx[-args.top_k:]]
     np.save(
         args.dumpdir + '/pos_tgt_' + '_'.join([str(i) for i in args.target]),
         buff_good.cpu().data.numpy()
@@ -110,6 +114,7 @@ def parse_arguments():
     parser.add_argument('--idim', type=int, default=80,
         help='The input dimension of features'
     )
+    parser.add_argument('--chunk-width', type=int, default=None)  
     parser.add_argument('--left-context', type=int, default=40,
         help='extra left context on the input features'
     )

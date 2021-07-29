@@ -24,6 +24,8 @@ OBJECTIVES = {
     'InfoNCE': InfoNCEOnly.InfoNCELoss,
     'SemisupInfoNCE': SemisupInfoNCE.InfoNCELoss,
     'InfoNCE2pass': InfoNCE2pass.InfoNCELoss,
+    'L2': L2.L2,
+    'Multitask': Multitask.MultitaskLoss,
 }
 
 def build_objective(objectivename, conf):

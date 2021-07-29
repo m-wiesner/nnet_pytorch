@@ -18,6 +18,7 @@ def main():
     parser.add_argument('idir')
     parser.add_argument('ogif')
     parser.add_argument('name', type=str)
+    parser.add_argument('--initval', type=float, default=1.0)
     args = parser.parse_args()
 
     files = glob.glob('{}/{}.*.npy'.format(args.idir, args.name))
@@ -28,8 +29,8 @@ def main():
         fname = os.path.basename(f)
         print(fname)
         out = np.load(f)
-        plt.imshow(np.flipud(out.T), vmin=-1.0, vmax=1.0)
-        plt.clim(-1, 1)
+        plt.imshow(np.flipud(out.T), vmin=-args.initval, vmax=args.initval)
+        plt.clim(-args.initval, args.initval)
         plt.colorbar()
         plt.savefig(args.idir + "/" + fname + ".png")
         images.append(imageio.imread(args.idir + "/" + fname + ".png"))

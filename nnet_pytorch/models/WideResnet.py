@@ -80,18 +80,22 @@ class SpeechResnet(nn.Module):
     def add_args(parser):
         parser.add_argument('--depth', type=int, default=28)
         parser.add_argument('--width', type=int, default=10)
+        parser.add_argument('--strides', type=str, default="[1, 1, 2, 2]")
 
     @classmethod
     def build_model(cls, conf):
+        strides = eval(conf.get('strides', "[1, 1, 2, 2]"))
         model = SpeechResnet(
             conf['depth'], conf['width'],
             num_classes=conf['num_targets'],
+            strides=strides,
             input_channels=1,
         )
         return model
 
     def __init__(self, depth, widen_factor, num_classes=10, input_channels=3,
-                 sum_pool=False, norm=None, leak=.2, dropout_rate=0.0):
+                 sum_pool=False, norm=None, leak=.2, dropout_rate=0.0,
+                 strides=[1, 1, 2, 2,]):
         super(SpeechResnet, self).__init__()
         self.leak = leak
         self.odim = num_classes
@@ -107,10 +111,10 @@ class SpeechResnet(nn.Module):
         print('| Wide-Resnet %dx%d' %(depth, k))
         nStages = [16, 16*k, 32*k, 64*k]
 
-        self.conv1 = conv3x3(input_channels, nStages[0])
-        self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=1)
-        self.layer2 = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=2)
-        self.layer3 = self._wide_layer(wide_basic, nStages[3], n, dropout_rate, stride=2)
+        self.conv1 = conv3x3(input_channels, nStages[0], stride=strides[0])
+        self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=strides[1])
+        self.layer2 = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=strides[2])
+        self.layer3 = self._wide_layer(wide_basic, nStages[3], n, dropout_rate, stride=strides[3])
         self.bn1 = get_norm(nStages[3], self.norm)
         self.last_dim = nStages[3]
         self.linear = nn.Linear(nStages[3], num_classes)

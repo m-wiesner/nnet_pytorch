@@ -14,16 +14,25 @@ from .pychain.pychain.chain import ChainFunction
 
 class NumeratorFunction(torch.autograd.Function):
     @staticmethod
+    @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
     def forward(ctx, input, targets):
         input = input.clamp(-30, 30)
         output = input.gather(2, targets.unsqueeze(2)).sum()
         B = input.size(0)
         num_grad = torch.zeros_like(input)
         num_grad.scatter_(2, targets.unsqueeze(2), 1.0) 
+        kernel = torch.FloatTensor([[[0.1, 0.8, 0.1]]]).repeat(input.size(-1), 1, 1).to(input.device)
+        num_grad = F.conv1d(
+            num_grad.transpose(1, 2),
+            kernel, stride=1, groups=input.size(-1),
+            padding=1
+        ).transpose(1, 2)
+        # F.conv1d(num_grad, )
         ctx.save_for_backward(num_grad)
         return output 
 
     @staticmethod
+    @torch.cuda.amp.custom_bwd
     def backward(ctx, objf_grad):
         num_grad, = ctx.saved_tensors
         num_grad = torch.mul(num_grad, objf_grad)

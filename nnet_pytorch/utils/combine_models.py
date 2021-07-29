@@ -58,7 +58,6 @@ def main():
     for i, m in enumerate(args.models):
         print("Combining Model ", i, " ...")
         state_dict = torch.load(m, map_location=torch.device('cpu'))
-        
         #----------------------- Model -------------------------
         # To combine models, we just average the weights
         for name, p in state_dict['model'].items():

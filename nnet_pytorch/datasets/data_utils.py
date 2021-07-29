@@ -200,7 +200,7 @@ def perturb(x, perturbations='none'):
             x += this_std * torch.randn_like(x)
         elif perturb_type[0] == 'rand':
             params = perturb_type[1]
-            maxval = params.get('maxval', 1.0) 
+            maxval = params.get('max_val', 1.0) 
             x.uniform_(-maxval, maxval)
         elif perturb_type[0] == 'volume':
             params = perturb_type[1]

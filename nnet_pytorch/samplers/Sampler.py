@@ -11,7 +11,7 @@ from .optim.AdamSGLD import AdamSGLD
 from .optim.AcceleratedSGLD import AcceleratedSGLD
 
 
-class Sampler(object):
+class Sampler(torch.nn.Module):
     '''
         This is and Energy-based Sampler. It is responsible for generating
         samples using an underlying neural network and an Energy function
@@ -23,7 +23,7 @@ class Sampler(object):
     def add_args(parser):
         parser.add_argument('--sgld-min-steps', type=int, default=20)
         parser.add_argument('--sgld-max-steps', type=int, default=20)
-        parser.add_argument('--sgld-buffer-size', type=int, default=10000)
+        parser.add_argument('--sgld-buffer-size', type=str, default="(10000, 250, 100)") # B x T x D
         parser.add_argument('--sgld-reinit-p', type=float, default=0.05)
         parser.add_argument('--sgld-thresh', type=float, default=0.0)
         parser.add_argument('--sgld-clip', type=float, default=1.0)
@@ -35,6 +35,7 @@ class Sampler(object):
                 'uniform_rand',
                 'gauss_rand',
                 'target',
+                'dynamic',
             ],
             help='The stopping criteria for the SGLD updates.'
                 '   fixed        -- stop after (min_steps + max_steps)/2 '
@@ -45,7 +46,9 @@ class Sampler(object):
                 '                   gaussian with: '
                 '                   mu = (min_steps + max_steps)/2'
                 '                   var = (max_steps - min_steps) / 2'
-                '   target       -- stop within threshold of target value',
+                '   target       -- stop within threshold of target value'
+                '   dynamic      -- change number of steps based on '
+                '                   difference between E[E(x)] and E(x).',
             default='fixed',
         ) 
         parser.add_argument('--sgld-optim', type=str,
@@ -91,7 +94,7 @@ class Sampler(object):
         # sampling type
         if conf.get('sgld_sampling_type', 'marg') == 'prior':
             if conf.get('sgld_priors', None) is None:
-                raise ValueError('Using sampling type <prior> requires '
+                raise RuntimeError('Using sampling type <prior> requires '
                     'specifying a file with priors using '
                     '                                    '
                     '    --sgld-priors <FILENAME>.       '
@@ -105,17 +108,29 @@ class Sampler(object):
             conf.get('sgld_stop_crit', 'fixed') == 'target' and
             conf.get('sgld_sampling_type', 'marg') in ('prior', 'post')
         ):
-            raise ValueError('sgld_stop_crit == "target" is not supported '
+            raise RuntimeError('sgld_stop_crit == "target" is not supported '
                 'with post or prior sampling types.'
              )
-            
+       
+        datasets = eval(conf['datasets'])
+        max_len = 0
+        for d in datasets:
+            widths = d['min_chunk_width'], d['left_context'], d['right_context']
+            max_len = max(max_len, sum(widths))
+            max_len = max(max_len, d['chunk_width'])
+        
+        buffer_size = eval(conf.get('sgld_buffer_size', "(10000, 250, 100)"))
+        if max_len > buffer_size[1]:
+            raise RuntimeError("The data length is longer than the buffer") 
+        
         # Returned the sampler
         return Sampler(
-            sgld_buffer_size=conf.get('sgld_buffer_size', 10000),
+            sgld_buffer_size=buffer_size,
             sgld_reinit_p=conf.get('sgld_reinit_p', 0.05),
             sgld_init_val=conf.get('sgld_init_val', 1.0),
             sgld_min_steps=conf.get('sgld_min_steps', 20),
             sgld_max_steps=conf.get('sgld_max_steps', 20),
+            sgld_sampling_type=conf.get('sgld_sampling_type', 'marg'),
             sgld_stop_crit=conf.get('sgld_stop_crit', 'fixed'),
             sgld_thresh=conf.get('sgld_thresh', 0.0),
             sgld_clip=conf.get('sgld_clip', 1.0), 
@@ -128,24 +143,24 @@ class Sampler(object):
     def add_state_dict(cls, s1, s2, fraction, iteration=None):
         s1 = deepcopy(s1)
         buffsize = len(s2['buffer'])
-        if len(s1['buffer']) == 0:
-            s1['buffer'] = s2['buffer'].cpu()
-            s1['buffer_numsteps'] = s2['buffer_numsteps'].cpu()
+        if 'buffer' not in s1 or len(s1['buffer']) == 0:
+            s1['buffer'] = s2['buffer']
+            s1['buffer_numsteps'] = s2['buffer_numsteps']
             return s1
         num_samples = int(fraction * buffsize)
         idxs = torch.randperm(buffsize)
         idxs = idxs[:num_samples]
         if iteration is not None:
             start_idx = iteration * num_samples
-            s1['buffer'][start_idx:start_idx + num_samples] = s2['buffer'][idxs].cpu()
-            s1['buffer_numsteps'][start_idx: start_idx + num_samples] = s2['buffer_numsteps'][idxs].cpu()
+            s1['buffer'][start_idx:start_idx + num_samples] = s2['buffer'][idxs]
+            s1['buffer_numsteps'][start_idx: start_idx + num_samples] = s2['buffer_numsteps'][idxs]
         else:
-            s1['buffer'][idxs] = s2['buffer'][idxs].cpu()
-            s1['buffer_numsteps'][idxs] = s2['buffer_numsteps'][idxs].cpu()
+            s1['buffer'][idxs] = s2['buffer'][idxs]
+            s1['buffer_numsteps'][idxs] = s2['buffer_numsteps'][idxs]
         return s1
     
     def __init__(self,
-        sgld_buffer_size=10000,
+        sgld_buffer_size=(10000, 250, 100),
         sgld_reinit_p=0.05,
         sgld_init_val=1.0,
         sgld_min_steps=20,
@@ -158,9 +173,13 @@ class Sampler(object):
         sgld_priors=None,
         sgld_optim=SGLD,
     ):
+        super(Sampler, self).__init__()
         self.buffer_size = sgld_buffer_size
-        self.buffer = torch.FloatTensor()
-        self.buffer_numsteps = torch.zeros(sgld_buffer_size)
+        self.register_buffer(
+            'buffer',
+            torch.zeros(sgld_buffer_size).uniform_(-sgld_init_val, sgld_init_val)
+        )
+        self.register_buffer('buffer_numsteps', torch.zeros(sgld_buffer_size[0]))
         self.reinit_p = sgld_reinit_p
         self.init_val = sgld_init_val
         self.min_steps = sgld_min_steps
@@ -172,19 +191,26 @@ class Sampler(object):
         self.sampling_type = sgld_sampling_type
         self.priors = sgld_priors
         self.optim = sgld_optim
+        if self.stop_crit == 'fixed':
+            self.steps = (self.min_steps + self.max_steps) // 2
+        else:
+            self.steps = self.min_steps
 
         if self.sampling_type == 'prior':
             self.priors_offsets = self.load_priors()
      
     def generate_like(self, sample, model, energy,
-        precomputed=None, generate_type='pd', targets=None, 
+        data_energy=None, generate_type='pd', targets=None,
+        normalize=False, 
     ):
         '''
             Generate samples using the sampler to have the same dimensions,
             type, and device as x. model and energy are used to produce the 
-            scores of the sample under the model. precomputed is the
-            precomputed outputs from model of a reference whose energy we
-            can use to influence generation.
+            scores of the sample under the model. data_energy is a target
+            energy value that can be used in optimization to help guide the
+            sampler toward producing better samples quickly, especially when
+            using the AcceleratedSGLD optimizer or the the target stopping
+            criterion.
 
             generate_type:
                 pd          -- persistent divergence
@@ -193,10 +219,11 @@ class Sampler(object):
                 decorrupt   -- use inputs 
         '''
         # Some initial checks. Initializing the buffer if it is still empty
-        if len(self.buffer) == 0:
+        # This should never happen at this point ...
+        if self.buffer is None or len(self.buffer) == 0:
             self.init_buffer_like(sample.input) 
         
-        B, T = sample.input.size(0), sample.input.size(1)
+        B = sample.input.size(0)
         # Initialize synthetic sample
         if generate_type == 'pd':
             sample_synthetic, metadata = self.init_pd_like(sample) 
@@ -207,35 +234,31 @@ class Sampler(object):
         elif generate_type == 'decorrupt':
             sample_synthetic = sample.input
             metadata = sample.metadata 
-            numsteps = torch.zeros(sample.input.size(0)).to(sample.input.device)
-
-        # Treat inputs as updated parameters and track gradients
-        sample_synthetic.requires_grad = True
-        sample_synthetic_params = torch.nn.Parameter(sample_synthetic)
-        optim = self.optim([sample_synthetic_params])
+            numsteps = torch.zeros(B).to(sample.input.device)
         
         # Determine the energy function to use
         if self.sampling_type == 'prior':
             energy_ = TargetEnergy()
-            if targets is None:
+            if targets is None and hasattr(sample, 'target'):
+                T = sample.target.size(1)
                 targets = self.sample_targets(B, T)
             energy_fun = partial(
-                energy_.forward, model, target=targets, precomputed=None
+                energy_.forward, model, target=targets, precomputed=None, normalize=normalize,
             )
         elif self.sampling_type == 'post':
             raise NotImplementedError('<post> sampling is not yet implemented')
         elif self.sampling_type == 'marg': 
-            energy_fun = partial(energy, model, precomputed=None)
+            energy_fun = partial(energy, model, precomputed=None, normalize=normalize)
        
-        # Compute reference value for energy of actual data 
-        data_energy = None
-        if precomputed is not None: 
-            data_energy = energy(model, sample, precomputed=precomputed).data.item()  
+        # Treat inputs as updated parameters and track gradients
+        sample_synthetic.requires_grad = True
+        sample_synthetic_params = torch.nn.Parameter(sample_synthetic)
+        optim = self.optim([sample_synthetic_params], finalval=data_energy)
 
         # Create a stopping criterion based on num sgld iters taken and current
         # value of the function
-        if self.stop_crit == 'fixed':
-            stop_crit = lambda *args: args[0] >= (self.max_steps + self.min_steps) // 2 
+        if self.stop_crit in ('fixed', 'dynamic'):
+            stop_crit = lambda *args: args[0] >= self.steps
         elif self.stop_crit == 'uniform_rand':
             stop_crit = lambda *args: args[0] >= self.min_steps + \
                 int((random.random() - 1e-09) * (self.max_steps - self.min_setps))
@@ -251,13 +274,16 @@ class Sampler(object):
         elif self.stop_crit == 'target':
             stop_crit = lambda *args: (
                     (
-                (args[1] - data_energy) / abs(data_energy) <= self.sgld_thresh and
+                (args[1] - data_energy) / abs(data_energy) <= self.thresh and
                 args[0] >= self.min_steps
                     ) or args[0] >= self.max_steps
-            )     
+            ) 
         
         # Set up synthetic minibatch and evaluate the energy
         y = energy_fun(Sampler.Minibatch(sample_synthetic_params, metadata))
+        grad_norm = torch.nn.utils.clip_grad_norm_(
+            [sample_synthetic_params], self.clip
+        )
         k = 0 # The iteration counter
         if self.debug:
             logging_stats = {
@@ -287,7 +313,7 @@ class Sampler(object):
                     }
             )
             numsteps += 1
-            optim.step(numsteps=numsteps)
+            optim.step(numsteps=numsteps, startval=y.data.item())
             optim.zero_grad()
             y = energy_fun(Sampler.Minibatch(sample_synthetic_params, metadata))  
             k += 1 
@@ -306,8 +332,8 @@ class Sampler(object):
         x = sample_synthetic_params.detach() 
         if len(self.buffer) > 0 and generate_type == 'pd':
             buffer_idxs = metadata['buffer_idxs']
-            self.buffer[buffer_idxs] = x.cpu()
-            self.buffer_numsteps[buffer_idxs] = numsteps.cpu() 
+            self.buffer[buffer_idxs, :x.size(1), :x.size(2)] = x
+            self.buffer_numsteps[buffer_idxs] = numsteps
         return Sampler.Minibatch(x, metadata), k
 
     def generation_print(self, logging_stats):
@@ -328,30 +354,16 @@ class Sampler(object):
         print(f"Sampled_Energy: {Sampled_Energy} Target_Energy {Target_Energy}")
         print('-------------------------------------------------------------')
 
-    def state_dict(self):
-        return {
-            'buffer': self.buffer,
-            'buffer_numsteps': self.buffer_numsteps,
-        }
-    
-    def load_state_dict(self, state_dict):
-        if 'buffer' not in state_dict:
-            raise KeyError('Key <buffer> is not in the state dict')
-        elif 'buffer_numsteps' not in state_dict:
-            raise KeyError('Key <buffer_numsteps> is not in the state_dict')
-        self.buffer = state_dict['buffer']
-        self.buffer_numsteps = state_dict['buffer_numsteps']
-
     def init_buffer_like(self, data):
         '''
             Initialize the buffer with examples that have the same shape as
             data.
         '''
-        bs = self.buffer_size
+        bs = self.buffer_size[0]
         cw, dim = data.size(1), data.size(2)
         self.buffer = torch.FloatTensor(
             bs, cw, dim
-        ).uniform_(-self.init_val, self.init_val)
+        ).uniform_(-self.init_val, self.init_val).to(data.device)
     
     def init_random_like(self, data):
         '''
@@ -361,8 +373,8 @@ class Sampler(object):
         bs, cw, dim = data.size(0), data.size(1), data.size(2)
         samples = torch.FloatTensor(
             bs, cw, dim
-        ).uniform_(-self.init_val, self.init_val)
-        numsteps = torch.zeros(bs)
+        ).uniform_(-self.init_val, self.init_val).to(data.device)
+        numsteps = torch.zeros(bs).to(data.device)
         return samples, numsteps
 
     def init_from_buffer_like(self, data):
@@ -370,8 +382,11 @@ class Sampler(object):
             Return a tensor of size data.size() with values sampled from the
             buffer.
         '''
-        idxs = torch.randint(0, len(self.buffer), (data.size(0),))
-        return self.buffer[idxs], self.buffer_numsteps[idxs], idxs
+        idxs = torch.randint(0, len(self.buffer), (data.size(0),)).to(data.device)
+        T, D = data.size(1), data.size(2)
+        if D > self.buffer.size(2):
+            raise RuntimeError("The data dimension is larger than what is in the buffer")
+        return self.buffer[idxs, :T, :D], self.buffer_numsteps[idxs], idxs
 
     def init_pd_like(self, sample):
         '''
@@ -383,17 +398,17 @@ class Sampler(object):
         buff_samples, buff_numsteps, idxs = self.init_from_buffer_like(x)
         rand_samples, rand_numsteps = self.init_random_like(x)
         
-        choose_rand = (torch.rand(x.size(0)) < self.reinit_p).float()[:, None, None]
+        choose_rand = (torch.rand(x.size(0)) < self.reinit_p).float()[:, None, None].to(x.device)
         samples = choose_rand * rand_samples + (1 - choose_rand) * buff_samples 
         numsteps = choose_rand.view(-1) * rand_numsteps + (1 - choose_rand.view(-1)) * buff_numsteps 
         
         metadata.update(
             {
                 'buffer_idxs': idxs,
-                'buffer_numsteps': numsteps.to(x.device)
+                'buffer_numsteps': numsteps
             }
         ) 
-        return samples.to(x.device), metadata 
+        return samples, metadata 
 
     def load_priors(self):
         '''
@@ -433,3 +448,21 @@ class Sampler(object):
             )
         f.close()
         return tgts
+
+    def update(self, expected_energy, energy):
+        if self.stop_crit == 'dynamic':
+            if expected_energy < energy + self.thresh: 
+                self.steps = max(self.min_steps, self.steps - 1)
+            else:
+                self.steps = min(self.max_steps, self.steps + 1)
+
+    def state_dict(self):
+        state_dict = super().state_dict()
+        state_dict.update({'steps': self.steps})
+        return state_dict
+
+    def load_state_dict(self, state_dict):
+        steps = state_dict.pop('steps', None)
+        if steps is not None:
+            self.steps = steps 
+        super().load_state_dict(state_dict)

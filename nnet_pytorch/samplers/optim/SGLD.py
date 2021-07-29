@@ -66,7 +66,9 @@ class SGLD(Optimizer):
         )
 
     def __init__(self, params, lr=required, momentum=0, dampening=0,
-                 weight_decay=0, nesterov=False, stepscale=1.0, noise=0.005):
+                 weight_decay=0, nesterov=False, stepscale=1.0, noise=0.005,
+                 finalval=None,
+    ):
         if lr is not required and lr < 0.0:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if momentum < 0.0:
@@ -91,7 +93,7 @@ class SGLD(Optimizer):
         return self.noise * torch.randn_like(x).mul_(std)
     
     @torch.no_grad()
-    def step(self, numsteps=None, closure=None):
+    def step(self, numsteps=None, startval=None, closure=None):
         """Performs a single optimization step.
 
         Arguments:

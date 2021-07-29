@@ -21,6 +21,10 @@ def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'
         
         It defines how to use these components to perform 1 epoch of training.
     '''
+    if args.gpu and args.fp16:
+        print("Using fp16 operations")
+        scaler = torch.cuda.amp.GradScaler()
+        
     total_loss = 0.0
     move_to = datasets.DATASETS[args.datasetname].move_to
     dataset_args = eval(args.datasets)
@@ -35,24 +39,39 @@ def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'
             "Iter: ", int(i / args.delay_updates), " of ", total_num_updates,
             "LR: {:0.5e}".format(lr_sched.curr_lr), 
             "bsize: ", b.target.size(0), 
-            "cw: ", b.input.size(1), end=' '
+            "cl: ", b.input.size(1), 
+            "cw: ", b.input.size(1) - (b.metadata['left_context'] + b.metadata['right_context']),
+            end=' '
         )
-        loss, correct = objective(model, b)
+        if args.gpu and args.fp16:
+            with torch.cuda.amp.autocast():
+                loss, correct = objective(model, b)
+        else:
+            loss, correct = objective(model, b)
         if isinstance(loss, int):
             continue;
         print("Loss: {:0.5f}".format(loss.data.item()), end=' ')
         if correct is not None:
             print(" Acc: {:0.5f}".format(float(correct.data.item()) / (b.target.view(-1).size(0))), end=' ')
         total_loss += loss.data.item()
-        loss.backward()
+        if args.gpu and args.fp16:
+            scaler.scale(loss).backward()
+        else:
+            loss.backward()
         loss.detach()
         del b
         # Mimics multigpu training with large batches on a single gpu
         if ((i % args.delay_updates) == 0):
+            if args.gpu and args.fp16:
+                scaler.unscale_(optim)
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_thresh)
             print("Grad_norm: {:0.5f}".format(grad_norm.data.item()), end='')
             print()
-            optim.step()
+            if args.gpu and args.fp16:
+                scaler.step(optim)
+                scaler.update()
+            else:
+                optim.step()
             optim.zero_grad()
             lr_sched.step(1.0)
         else:
@@ -125,8 +144,17 @@ def decorrupt_dataset(args, generator, model, objective, device='cpu'):
         uttname = b.metadata['name'][0]
         targets = None if b.target[0, 0] == -1 else b.target.tolist()
         b = move_to(b, device)
-        for sgld_iter, decorrupted in enumerate(objective.decorrupt(model, b, num_steps=args.num_steps, targets=targets)):
-            yield uttname, sgld_iter, decorrupted.contiguous().view(-1, decorrupted.size(2)).detach().cpu().numpy()
+        decorrupt_gen = objective.decorrupt(
+            model, b, num_steps=args.num_steps, targets=targets
+        )
+        # Just yield the first one so we can see what we are started with
+        output = b.input.contiguous().view(-1, b.input.size(2))
+        output_tgts = b.target.contiguous().view(-1)
+        yield uttname, 0, output.detach().cpu(), output_tgts.detach().cpu().tolist()
+        for sgld_iter, decorrupted in enumerate(decorrupt_gen, 1):
+            output = decorrupted.contiguous().view(-1, decorrupted.size(2))
+            output_tgts = b.target.contiguous().view(-1)
+            yield uttname, sgld_iter, output.detach().cpu(), output_tgts.detach().cpu().tolist()
 
 
 def evaluate_energies(args, generator, model, device='cpu'):

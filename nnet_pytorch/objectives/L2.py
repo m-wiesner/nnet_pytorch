@@ -9,7 +9,7 @@ class L2(torch.nn.Module):
 
     @classmethod
     def build_objective(cls, conf):
-        return L2(conf)
+        return L2()
     
     @classmethod
     def add_state_dict(cls, s1, s2, fraction, iteration=None):

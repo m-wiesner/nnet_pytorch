@@ -12,22 +12,27 @@ from .L2 import L2
 class InfoNCELoss(nn.Module):
     @staticmethod
     def add_args(parser):
-        parser.add_argument('--l2-reg', type=float, default=0.0001)
+        parser.add_argument('--infonce-l2', type=float, default=0.0001)
+        parser.add_argument('--infonce-cw', type=int, default=None)
         L2.add_args(parser) 
          
     @classmethod
     def build_objective(cls, conf):
-        return InfoNCELoss(l2_reg=conf['l2_reg'])
+        return InfoNCELoss(
+            l2_reg=conf['infonce_l2'],
+            cw=conf['infonce_cw'],
+        )
 
     @classmethod
     def add_state_dict(cls, s1, s2, fraction, iteration=None):
         return s1 
     
-    def __init__(self, avg=True, l2_reg=0.0001):
+    def __init__(self, avg=True, l2_reg=0.0001, cw=None):
         super(InfoNCELoss, self).__init__()
         self.avg = avg
         self.l2 = L2()
         self.l2_reg = l2_reg
+        self.cw = cw
 
     def forward(self, model, sample, precomputed=None):
         # Check if we are using precomputed values
@@ -35,10 +40,26 @@ class InfoNCELoss(nn.Module):
             x = precomputed
         else:
             x = model(sample)[0]
-        
+
         T = x.size(1) # Length
         B = x.size(0)
-        loss = self.compute_loss(x, sample.target)
+       
+        # Reshape network outputs to use requested cw
+        if self.cw is not None:
+            new_cw = min(self.cw, T)
+            blocks_per_eg = T // new_cw
+            old_cw = blocks_per_eg * new_cw
+
+            x_ = x[:, 0:old_cw, :].contiguous().view(-1, new_cw, x.size(-1))  
+            target_ = sample.target[:, 0:old_cw].contiguous().view(-1, new_cw)
+            B = x_.size(0)
+            T = new_cw
+        else:
+            x_ = x
+            target_ = sample.target
+        if target_[0, 0] == -1:
+            target_ = nn.functional.gumbel_softmax(x_, hard=True, dim=-1).argmax(-1)
+        loss = self.compute_loss(x_, target_)
         # This is for printing. It's the average number of targets classified
         # correctly.
         correct = sum([l.exp() for l in loss]) * T 

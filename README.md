@@ -15,6 +15,15 @@ modifications:
   alignment for the numerator lattice. This speeds up the gradient computation
   in LFMMI since we only have to do forward-backward on the denominator lattice.
 
+  For the numerator lattice we recently added support for some notion of
+  alternative alignments of the target sequence. Instead of creating the full
+  numerator lattice, we simply smooth gradients of the the 1-best alignment
+  using a kernel [0.1, 0.8, 0.1] to the surrounding time indicies. This is
+  effectively the same gradient you would get from using a lattice where
+  alternative alignments other than the 1-best are used in the numerator graph.
+  This feature is not yet well tested, but does not seem to impact performance
+  much on the librispeech train-clean 100h task. 
+
 2. **Pytorch native optimizers (Adam) instead of Natural Gradient**:
   All provided examples use pytorch-native optimizers. We generally train with
   1/3-1/2 of the training train used for warmup steps, and then decay the
@@ -42,12 +51,6 @@ TODO
   paths in training without dumping a numerator lattice. Even just allowing
   alternative alignments should be easily doable though it is not yet
   implemented.
-
-**On-the-fly Data perturbations**
-  We have some rudimentary noising of audio examples implemented though we
-  haven't really tried them out. We should also be able to support
-  on-the-fly feature computation as an alternative to dumping the memory mapped
-  features, even if it increases the training time somewhat.
 
 **More compact representation of targets**
   We currently are writing the target sequences as raw text files. These should
@@ -124,6 +127,8 @@ The core algorithms can be found in nnet_pytorch. The model Archictecture is
 defined in: 
 
   nnet_pytorch/models/WideResnet.py
+  nnet_pytorch/models/BLSTM.py
+  nnet_pytorch/models/MultiBLSTM.py
 
 For generative modeling the SGLD sampling is implemented in:
 

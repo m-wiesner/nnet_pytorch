@@ -1,6 +1,6 @@
 import torch
-import random
 from torch.optim.optimizer import Optimizer, required
+from functools import partial
 
 
 class AcceleratedSGLD(Optimizer):
@@ -60,16 +60,16 @@ class AcceleratedSGLD(Optimizer):
     @classmethod
     def build_partial(cls, conf):
         return partial(
-            SGLD.__init__,
+            AcceleratedSGLD,
             lr=conf['sgld_stepsize'],
             noise=conf['sgld_noise'],
             stepscale=conf['sgld_replay_correction'],
-            weight_decay=conf['sgld_weight_deccay'],
+            weight_decay=conf['sgld_weight_decay'],
             rel_overshoot=conf['sgld_overshoot'],
-            epsilon=conf['sgld-epsilon'],
+            epsilon=conf['sgld_epsilon'],
         )
 
-    def __init__(self, params, finalval, lr=required, momentum=0, dampening=0,
+    def __init__(self, params, finalval=0.0, lr=required, momentum=0, dampening=0,
         weight_decay=0, nesterov=False, stepscale=1.0, noise=0.005,
         rel_overshoot=0.1, epsilon=0.00005,
     ):
