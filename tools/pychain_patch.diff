@@ -1,6 +1,15 @@
-diff --git a/__init__.py b/__init__.py
-new file mode 100644
-index 0000000..e69de29
+From 640a85e4455a72f092552e8f1475681ca77c87c7 Mon Sep 17 00:00:00 2001
+From: Matthew Wiesner <wiesner@jhu.edu>
+Date: Thu, 29 Jul 2021 12:25:20 -0400
+Subject: [PATCH] nnet_pytorch updates
+
+---
+ pychain/__init__.py                      |  1 -
+ pychain/chain.py                         | 88 ++++++++++++++++++++++++++++++++
+ pytorch_binding/src/chain-computation.cc |  3 +-
+ 3 files changed, 90 insertions(+), 2 deletions(-)
+ create mode 100644 pychain/chain.py
+
 diff --git a/pychain/__init__.py b/pychain/__init__.py
 index 890d65b..84a54e6 100644
 --- a/pychain/__init__.py
@@ -10,10 +19,10 @@ index 890d65b..84a54e6 100644
  from .graph import *
 diff --git a/pychain/chain.py b/pychain/chain.py
 new file mode 100644
-index 0000000..20ada53
+index 0000000..f7f7174
 --- /dev/null
 +++ b/pychain/chain.py
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,88 @@
 +# Copyright       2019 Yiwen Shao
 +#                 2020 Yiming Wang
 +
@@ -38,8 +47,11 @@ index 0000000..20ada53
 +
 +class ChainFunction(torch.autograd.Function):
 +    @staticmethod
-+    def forward(ctx, input, input_lengths, graphs, leaky_coefficient=1e-5):
-+        input = input.contiguous().clamp(-30, 30)  # clamp for both the denominator and the numerator
++    @torch.cuda.amp.custom_fwd(cast_inputs=torch.float32)
++    def forward(ctx, input, input_lengths, graphs, leaky_coefficient=1e-5, clamp=True):
++        input = input.contiguous()
++        if clamp:
++            input = input.clamp(-30, 30)  # clamp for both the denominator and the numerator
 +        B = input.size(0)
 +        if B != graphs.batch_size:
 +            raise ValueError(
@@ -93,11 +105,12 @@ index 0000000..20ada53
 +        return objf.sum()
 +
 +    @staticmethod
++    @torch.cuda.amp.custom_bwd
 +    def backward(ctx, objf_grad):
 +        input_grad, = ctx.saved_tensors
 +        input_grad = torch.mul(input_grad, objf_grad)
 +
-+        return input_grad, None, None, None
++        return input_grad, None, None, None, None
 diff --git a/pytorch_binding/src/chain-computation.cc b/pytorch_binding/src/chain-computation.cc
 index d53a03f..36edf10 100644
 --- a/pytorch_binding/src/chain-computation.cc
@@ -112,3 +125,6 @@ index d53a03f..36edf10 100644
  }
  
  void ChainComputation::BetaDashLastFrame() {
+-- 
+1.8.3.1
+
