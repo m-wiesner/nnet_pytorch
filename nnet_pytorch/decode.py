@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# Copyright 2021
+# Apache 2.0
 
 import os
 import argparse

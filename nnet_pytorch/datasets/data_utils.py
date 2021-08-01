@@ -1,3 +1,6 @@
+# Copyright 2021
+# Apache 2.0
+
 import kaldi_io
 import numpy as np
 import subprocess

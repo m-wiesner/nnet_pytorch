@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright 2021
+# Apache 2.0
 
 . ./path.sh
 . ./cmd.sh

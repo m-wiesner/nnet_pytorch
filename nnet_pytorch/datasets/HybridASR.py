@@ -1,3 +1,6 @@
+# Copyright 2021
+# Apache 2.0
+
 import numpy as np
 import torch
 from bisect import bisect

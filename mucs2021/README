@@ -1,0 +1,39 @@
+This example runs the JHU mucs 2021 challenge track2 systems. To run the hindi
+of bengali tasks, look at run.sh. That script works for both languages and only
+requires using the --lang {hindi,bengali} flag to specify which of the two
+languages to use.
+
+By default in the script, the lexicon is replaced by a wikipron lexicon and
+further steps in fix_lexicon.py are used to clean up pronunciations using a 
+G2P trained with phonetisaurus. This can be installed via Kaldi without any 
+difficulty. See kaldi/tools/extras/install_phonetisaurus.sh.
+
+The final system was a system combination of 3 systems. All BLSTM systems were
+pretrained on Librispeech. The pretrained Librispeech BLSTM model is provided.
+You can recreate the librispeech model by following the librispeech100 example,
+but training on the full 960h of training instead of just the 100h subset shown
+in that example.
+
+We have additionally provided the models for the single best systems used in
+the system combination, as well as decoding scripts that can be used to produce
+ASR transcripts for the test and blindtest sets.
+
+
+We noticed that the test set has significant speaker and transcript overlap 
+with the training set. Some of the data preparation and scoring involves
+separating out the files with duplicate transcripts. The reference segmentation
+is also problematic. For this reason, while we produce transcripts at the
+segment level in order to conform with the challenge rules, all internal
+scoring was done by merging all the segment transcripts from an audio file
+and aligning to the merged segment reference.
+
+For these reasons all WER are reported on a testset called the nodup set, which
+has removed the duplicate utterances and the WER is at the full audio file level
+rather than at the segmentation level. A full list of experiments can be found
+at the links below:
+
+hindi   -- https://github.com/m-wiesner/codeswitching2021/wiki/Hindi-Results
+bengali -- https://github.com/m-wiesner/codeswitching2021/wiki/Bengali-Results
+
+
+

@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+
+# 2021 Dongji Gao
+# Apache 2.0.
+
+import argparse
+import sys
+import io
+
+infile = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
+output = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+# creates a dictionary that maps Hindi-English words.
+def get_filter_dict(trans_book):
+    filter_dict = dict()
+
+    with open(trans_book, 'r', encoding='utf-8') as tb:
+        for line in tb.readlines():
+            word, orig_word = line.rstrip().split(None, 1)
+            if word not in filter_dict:
+                filter_dict[word] = orig_word
+
+    return filter_dict
+            
+# replace hindi word in the utterance with english word or viseversa
+def filter(filter_dict):
+    for line in infile:
+        output_list = list()
+        for word in line.rstrip().split():
+            if word in filter_dict:
+                output_list.append(filter_dict[word])
+            else:
+                output_list.append(word)
+        print(" ".join(output_list), file=output)
+        
+def analysis():
+    pass
+
+def main():
+    # awk -F ',' '{ if (length($2) != 1) { print $0} }' is21_hindi_words-dev_set.csv > is21_hindi_english_devfiltered.csv
+    trans_book = 'local/hindi_english_all'
+    filter_dict = get_filter_dict(trans_book)
+    filter(filter_dict)
+    analysis()
+
+
+if __name__ == "__main__":
+    main()
+

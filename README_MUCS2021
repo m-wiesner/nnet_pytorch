@@ -1,0 +1,36 @@
+                           MUCS2021 JHU System
+
+contact: Matthew Wiesner
+email:   wiesner@jhu.edu
+
+First read the README to install nnet_pytorch. This code is based around kaldi,
+pychain, and custom pytorch code for training hybrid HMM-DNN neural networks
+for ASR.
+  
+If you follow the instructions in the main README you can install all the
+dependencies.
+
+We have provided our final hindi models, the language model directory we used for
+decoding, and a pretrained librispeech model that we used to initialized our
+BLSTM models during training.
+
+You will also need to install phonetisaurus. This should be done through kaldi.
+
+kaldi/tools/extras/install_phonetisaurus.sh
+
+The mucs2021 directory contains a full example of how to train our best models
+as well as how to decode using the language model available for download. We
+are in the process of adding the LM training scripts and hope the model
+suffices for now. 
+
+The default recipe recreates the lexicon using available hindi and bengali
+lexicons from wikipron. Additioanlly we compiled transliteration pairs manually
+for hindi, and via a semi-automatic method based on decoding confusions for
+bengali. These lists are provided in local/{hindi,bengali}_english_all. We
+have not as of yet provided scripts for the semi-automated method because
+it frankly doesn't seem to have worked that well.
+
+Please see mucs2021/README for more information about the default recipe.
+
+
+

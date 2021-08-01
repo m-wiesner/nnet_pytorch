@@ -1,4 +1,6 @@
 #! /usr/bin/env python
+# Copyright 2021
+# Apache 2.0
 
 import os
 import argparse
@@ -140,8 +142,8 @@ def main():
         #        p.data.copy_(mdl['model'][name].data)
         for name, p in model.named_parameters():
             #if 'xent_layer' not in name and 'linear' not in name: 
-            #if not any([x in name for x in ['xent_layer', 'linear', 'final_affine']]):
-            if name in mdl['model']: 
+            if not any([x in name for x in ['xent_layer', 'linear', 'final_affine']]):
+            #if name in mdl['model']: 
                 p.data.copy_(mdl['model'][name].data)
     
     # Optionally freeze model parameters other than the output layer

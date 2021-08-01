@@ -1,3 +1,6 @@
+# Copyright 2021
+# Apache 2.0
+
 # Batch generators for training and inference
 
 def batches(dataset, n):
