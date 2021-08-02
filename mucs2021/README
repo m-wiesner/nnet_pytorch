@@ -3,6 +3,28 @@ of bengali tasks, look at run.sh. That script works for both languages and only
 requires using the --lang {hindi,bengali} flag to specify which of the two
 languages to use.
 
+The $root variable in run.sh should be updated to point to the location of the
+codeswitching data. Similarly the variable $data in local/prepare_blind_test.sh
+must be updated to point to the location of the blindtest set.
+                                
+                                Pretrained Models
+------------------------------------------------------------------------------
+
+Download pretrained models and lang directory from 
+
+specify the librispeech_model flag in run.sh --librispeech /path/to/model
+in order to train with the librispeech initialized blstm.
+
+Place pretrained models in exp in order to decode with them. For instance the
+WRN model could be placed in
+
+exp/wrn_sp_nopd/185_215.mdl.
+
+See the bottom of run.sh for an example of how to decode with these models. 
+
+
+                            Recipe Description
+------------------------------------------------------------------------------
 By default in the script, the lexicon is replaced by a wikipron lexicon and
 further steps in fix_lexicon.py are used to clean up pronunciations using a 
 G2P trained with phonetisaurus. This can be installed via Kaldi without any 
@@ -19,6 +41,8 @@ the system combination, as well as decoding scripts that can be used to produce
 ASR transcripts for the test and blindtest sets.
 
 
+                  Modifications to Data Prep and Scoring
+-------------------------------------------------------------------------------
 We noticed that the test set has significant speaker and transcript overlap 
 with the training set. Some of the data preparation and scoring involves
 separating out the files with duplicate transcripts. The reference segmentation
@@ -34,6 +58,5 @@ at the links below:
 
 hindi   -- https://github.com/m-wiesner/codeswitching2021/wiki/Hindi-Results
 bengali -- https://github.com/m-wiesner/codeswitching2021/wiki/Bengali-Results
-
 
 
