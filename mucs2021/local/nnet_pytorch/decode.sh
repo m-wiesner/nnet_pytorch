@@ -8,7 +8,6 @@
 . ./path.sh
 
 stage=1
-subsampling=4
 chaindir=exp/chain_cleaned_sp
 model_dirname=blstm_librispeech
 checkpoint=120_160.mdl
