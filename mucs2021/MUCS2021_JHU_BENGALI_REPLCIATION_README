@@ -1,0 +1,76 @@
+                                       Hindi
+------------------------------------------------------------------------------
+1. Install nnet_pytorch
+
+    git clone https://github.com/m-wiesner/nnet_pytorch.git
+    cd nnet_pytorch
+    git checkout -b conda_install origin/test
+
+
+2. Go to mucs2021 
+
+    cd mucs2021
+
+3. Download bengali_models.tar.gz 
+4. Uncompress
+    
+    tar -xzvf bengali_models.tar.gz
+
+5. Move to exp
+     
+    mv bengali_nodels/* .
+
+6. Prepare the blindtest data check in local/prepare_blind_test.sh to make sure
+   it is pointing to the data path
+
+
+      ./local/prepare_blind_test.sh --lang bengali
+      ./local/nnet_pytorch/prepare_test.sh data/blindtest --subsampling 3
+
+      
+7. Decode each of the 3 systems
+
+    ./local/nnet_pytorch/decode.sh --graphname graph_baseline_expanded \
+                                   --chaindir exp/chain_cleaned_sub3 \
+                                   --testsets "blindtest" \
+                                   --checkpoint 130_150.mdl \
+                                   --model-dirname blstm_ft_cleaned 
+    
+    ./local/nnet_pytorch/decode.sh --graphname graph_baseline_expanded \
+                                   --chaindir exp/chain_cleaned_sub3 \
+                                   --testsets "blindtest" \
+                                   --checkpoint 200_250.mdl \
+                                   --model-dirname blstm_sp_cleaned
+    
+    ./local/nnet_pytorch/decode.sh --graphname graph_baseline_expanded \
+                                   --chaindir exp/chain_cleaned_sub3 \
+                                   --testsets "blindtest" \
+                                   --checkpoint 125.mdl \
+                                   --model-dirname blstm_multi
+
+8. Rescore each system with the RNNLM model
+
+    ./local/rescore_rnnlm.sh --rnnlm-weight 0.2 --ngram-order 4 \
+      data/blindtest_fbank_64 data/lang_baseline_expanded \
+      exp/rnnlm_is21bn_256_64_64_all exp/blstm_ft_cleaned/decode_130_150.mdl_graph_baseline_expanded_1.0_cw220_blindtest
+    
+    ./local/rescore_rnnlm.sh --rnnlm-weight 0.2 --ngram-order 4 \
+      data/blindtest_fbank_64 data/lang_baseline_expanded \
+      exp/rnnlm_is21bn_256_64_64_all exp/blstm_sp_cleaned/decode_200_250.mdl_graph_baseline_expanded_1.0_cw220_blindtest
+      
+    ./local/rescore_rnnlm.sh --rnnlm-weight 0.2 --ngram-order 4 \
+      data/blindtest_fbank_64 data/lang_baseline_expanded \
+      exp/rnnlm_is21bn_256_64_64_all exp/blstm_multi/decode_125.mdl_graph_baseline_expanded_1.0_cw220_blindtest
+      
+9. Lattice combination
+
+    ./local/combine_systems.sh --decode-dirs "exp/blstm_ft_cleaned/decode_130_150.mdl_graph_baseline_expanded_1.0_cw220_blindtest_rnnlm_0.2 \
+      exp/blstm_sp_cleaned/decode_200_250.mdl_graph_baseline_expanded_1.0_cw220_blindtest_rnnlm_0.2 \
+      exp/blstm_multi/decode_125.mdl_graph_baseline_expanded_1.0_cw220_blindtest " \
+      data/blindtest_fbank_64 data/lang_baseline_expanded/words.txt exp/bengali_latcomb3
+
+10. Results are in
+
+    exp/bengali_latcomb3/scoring/10.txt
+
+

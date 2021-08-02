@@ -25,5 +25,5 @@ data=$1
 ./utils/fix_data_dir.sh ${data}${feat_affix}
 
 prepare_unlabeled_tgt.py --subsample ${subsampling} \
-  ${data}${feat_affix}/utt2num_frames > ${testdir}${feat_affix}/pdfid.${subsampling}.tgt
-split_memmap.sh ${data}${feat_affix} ${data}${feat_affix}/pdfid.${subsampling}.tgt 10
+  ${data}${feat_affix}/utt2num_frames > ${data}${feat_affix}/pdfid.${subsampling}.tgt
+split_memmap_data.sh ${data}${feat_affix} ${data}${feat_affix}/pdfid.${subsampling}.tgt 10

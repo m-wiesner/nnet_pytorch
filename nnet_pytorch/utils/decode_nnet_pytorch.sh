@@ -52,6 +52,8 @@ hclg=${graphdir}/HCLG.fst
 
 mkdir -p ${odir}/log
 
+echo ${nj} > ${odir}/num_jobs 
+
 if [ $stage -le 0 ]; then
   segments=${data}/segments
   if [ ! -f ${data}/segments ]; then

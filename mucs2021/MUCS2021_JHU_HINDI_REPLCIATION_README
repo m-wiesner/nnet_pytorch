@@ -1,0 +1,72 @@
+                                       Hindi
+------------------------------------------------------------------------------
+1. Install nnet_pytorch
+
+    git clone https://github.com/m-wiesner/nnet_pytorch.git
+    cd nnet_pytorch
+    git checkout -b conda_install origin/test
+
+
+2. Go to mucs2021 
+
+    cd mucs2021
+
+3. Download hindi_models.tar.gz 
+4. Uncompress
+    
+    tar -xzvf hindi_models.tar.gz
+
+5. Move to exp
+     
+    mv hindi_nodels/* .
+
+6. Prepare the blindtest data
+
+      ./local/prepare_blind_test.sh
+      ./local/nnet_pytorch/prepare_test.sh data/blindtest
+      
+7. Decode each of the 3 systems
+
+    ./local/nnet_pytorch/decode.sh --graphname graph_pd_expanded+extra \
+                                   --chaindir exp/chain_cleaned_sp \
+                                   --testsets "blindtest" \
+                                   --checkpoint 120_160.mdl \
+                                   --model-dirname blstm_librispeech 
+    
+    ./local/nnet_pytorch/decode.sh --graphname graph_pd_expanded+extra \
+                                   --chaindir exp/chain_cleaned_sp \
+                                   --testsets "blindtest" \
+                                   --checkpoint 185_215.mdl \
+                                   --model-dirname wrn_sp_nopd
+    
+    ./local/nnet_pytorch/decode.sh --graphname graph_pd_expanded+extra \
+                                   --chaindir exp/chain_cleaned_sp_joint_hindi \
+                                   --testsets "blindtest" \
+                                   --checkpoint 180_200.mdl \
+                                   --model-dirname blstm_librispeech_joint
+
+8. Rescore each system with the RNNLM model
+
+    ./local/rescore_rnnlm.sh --rnnlm-weight 0.2 --ngram-order 4 \
+      data/blindtest_fbank_64 data/lang_wikipron_expanded_+web.f33.4g+wiki.dev_120_160.mdl \
+      exp/rnnlm_is21hi_256_64_64_all exp/wrn_sp_nopd/decode_185_215.mdl_graph_pd_expanded+extra_1.0_cw220_blindtest
+    
+    ./local/rescore_rnnlm.sh --rnnlm-weight 0.2 --ngram-order 4 \
+      data/blindtest_fbank_64 data/lang_wikipron_expanded_+web.f33.4g+wiki.dev_120_160.mdl \
+      exp/rnnlm_is21hi_256_64_64_all exp/blstm_librispeech/decode_120_160.mdl_graph_pd_expanded+extra_1.0_cw220_blindtest
+      
+    ./local/rescore_rnnlm.sh --rnnlm-weight 0.2 --ngram-order 4 \
+      data/blindtest_fbank_64 data/lang_wikipron_expanded_+web.f33.4g+wiki.dev_120_160.mdl \
+      exp/rnnlm_is21hi_256_64_64_all exp/blstm_librispeech_joint/decode_180_200.mdl_graph_pd_expanded+extra_1.0_cw220_blindtest
+      
+9. Lattice combination
+
+    ./local/combine_systems.sh --decode-dirs "exp/wrn_sp_nopd/decode_185_215.mdl_graph_pd_expanded+extra_1.0_cw220_blindtest_rnnlm_0.2 \
+      exp/blstm_librispeech/decode_120_160.mdl_graph_pd_expanded+extra_1.0_cw220_blindtest_rnnlm_0.2 \
+      exp/blstm_librispeech_joint/decode_180_200.mdl_graph_pd_expanded+extra_1.0_cw220_blindtest_rnnlm_0.2" \
+      data/blindtest_fbank_64 data/lang_wikipron_expanded_+web.f33.4g+wiki.dev_120_160.mdl/words.txt exp/hindi_latcomb3
+
+10. Results are in
+
+  exp/hindi_latcomb3/scoring/10.txt
+

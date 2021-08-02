@@ -20,9 +20,9 @@ words=$2
 odir=$3
 
 decode_dirs=( $decode_dirs )
-nsys=${#decode_dirs[@]}
+num_sys=${#decode_dirs[@]}
 mkdir -p ${odir}/{log,scoring}
-for i in `seq 0 $[num_sys=1]`; do
+for i in `seq 0 $[num_sys-1]`; do
   lats[$i]="\"ark:gunzip -c ${decode_dirs[$i]}/lat.*.gz | \""
 done
 
