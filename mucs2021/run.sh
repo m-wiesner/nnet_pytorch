@@ -252,32 +252,3 @@ if [[ ${lang} = "bengali" ]]; then
   ./local/nnet_pytorch/decode.sh --output-idx 1 --testsets "blindtest" --checkpoint 180_200.mdl --model-dirname blstm_librispeech_joint
 fi
 
-# System Combination
-#decode_dirs=( "exp/wrn_sp_nopd/decode_185_215.mdl_graph_pd_expanded+extra_1.0_cw140_blindtest" \
-#              "exp/blstm_librispeech/decode_120_160.mdl_graph_pd_expanded+extra_1.0_cw220_blindtest" \
-#              "exp/blstm_librispeech_joint/decode_180_200.mdl_graph_pd_expanded+extra_1.0_cw220_output0_blindtest"
-#            )
-#
-#num_sys=${#decode_dirs[@]}
-#symtab=exp/chain_cleaned_sp/tree/graph_pd_expanded+extra/words.txt
-#odir=exp/latcomb3_blindtest
-#
-#mkdir -p $odir/log
-#mkdir -p $odir/scoring
-#
-#for i in `seq 0 $[num_sys-1]`; do
-#  lats[$i]="\"ark:gunzip -c ${decode_dirs[$i]}/lat.*.gz |\""
-#done
-#
-#$decode_cmd LMWT=10:10 $odir/log/combine_lats.LMWT.log \
-#  lattice-combine --inv-acoustic-scale=LMWT ${lats[@]} ark:- \| \
-#  lattice-mbr-decode --word-symbol-table=${sumtab} ark:- \
-#  ark,t:$odir/scoring/LMWT.tra || exit 1;
-#
-#./local/score_latcomb.sh --cmd "$decode_cmd" --min-lmwt 10 --max-lmwt 10 \
-#  --apply-output-filter true \
-#  data/blindtest_fbank_64 ${symtab} \
-#  ${odir}
-#
-# To run kaldi
-#./local/chain/run_tdnn.sh
