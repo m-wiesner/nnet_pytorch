@@ -1,3 +1,6 @@
+# Copyright 2021
+# Apache 2.0
+
 import torch
 from torch.optim.optimizer import Optimizer, required
 from functools import partial

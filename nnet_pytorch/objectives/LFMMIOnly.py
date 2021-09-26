@@ -27,7 +27,6 @@ class NumeratorFunction(torch.autograd.Function):
             kernel, stride=1, groups=input.size(-1),
             padding=1
         ).transpose(1, 2)
-        # F.conv1d(num_grad, )
         ctx.save_for_backward(num_grad)
         return output 
 

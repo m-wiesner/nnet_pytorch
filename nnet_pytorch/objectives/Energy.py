@@ -1,3 +1,6 @@
+# Copyright 2021
+# Apache 2.0
+
 import torch
 import torch.nn as nn
 from .pychain.pychain.graph import ChainGraphBatch, ChainGraph
@@ -120,7 +123,7 @@ class TargetEnergy(Energy):
         else:
             x_ = x.clone()
         target = torch.LongTensor(target).to(x_.device).unsqueeze(2)
-        energy = -x_.gather(2, target) / T
+        energy = -x_.clamp(-30, 30).gather(2, target) / T
         if reduction == 'sum':
             return energy.sum()
         elif reduction == 'none':

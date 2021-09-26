@@ -1,4 +1,6 @@
 #! /usr/bin/env python
+# Copyright 2021
+# Apache 2.0
 
 import os
 import argparse
@@ -140,10 +142,14 @@ def main():
         #        p.data.copy_(mdl['model'][name].data)
         for name, p in model.named_parameters():
             #if 'xent_layer' not in name and 'linear' not in name: 
-            #if not any([x in name for x in ['xent_layer', 'linear', 'final_affine']]):
-            if name in mdl['model']: 
-                p.data.copy_(mdl['model'][name].data)
-    
+            if args.replace_output:
+                if not any([x in name for x in ['xent_layer', 'linear', 'final_affine']]):
+                    if name in mdl['model']: 
+                        p.data.copy_(mdl['model'][name].data)
+            else:
+                if name in mdl['model']:
+                    p.data.copy_(mdl['model'][name].data)
+
     # Optionally freeze model parameters other than the output layer
     if args.freeze:
         for name, p in model.named_parameters():
@@ -195,12 +201,14 @@ def train(args, conf, datasets, model, objective, optimizer, lr_sched, device, v
             'optimizer': optimizer.state_dict(),
             'lr_sched': lr_sched.state_dict(),
             'epoch': e + 1,
+            'loss': avg_loss,
         }
         
-        torch.save(
-            state_dict,
-            args.expdir + '/{}.{}.mdl'.format(e + 1, args.job),
-        )
+        if not np.isnan(avg_loss):
+            torch.save(
+                state_dict,
+                args.expdir + '/{}.{}.mdl'.format(e + 1, args.job),
+            )
 
 
 def get_priors(args, dataset):
@@ -269,6 +277,8 @@ def parse_arguments():
             'BLSTM',
             'ChainBLSTM',
             'MultiChainBLSTM',
+            'Wav2Vec2',
+            'ChainWav2Vec2',
         ]
     )
     parser.add_argument('--seed', type=int, default=0)
@@ -299,6 +309,7 @@ def parse_arguments():
     parser.add_argument('--init', default=None)
     parser.add_argument('--fp16', action='store_true')
     parser.add_argument('--freeze', action='store_true')
+    parser.add_argument('--replace-output', action='store_true')
 
     # Args specific to different components. See model,LRScheduler,dataset}.py.
     args, leftover = parser.parse_known_args()  

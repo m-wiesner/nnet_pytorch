@@ -1,3 +1,6 @@
+# Copyright 2021
+# Apache 2.0
+
 import os
 import glob
 import importlib
@@ -25,6 +28,8 @@ MODELS = {
     'BLSTM': BLSTM.BLSTM,
     'ChainBLSTM': BLSTM.ChainBLSTM,
     'MultiChainBLSTM': MultiBLSTM.MultiChainBLSTM,
+    'Wav2Vec2': Wav2Vec2.Wav2Vec2,
+    'ChainWav2Vec2': Wav2Vec2.ChainWav2Vec2,
 }
 
 def build_model(modelname, conf):

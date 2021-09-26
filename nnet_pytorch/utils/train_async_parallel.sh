@@ -10,11 +10,13 @@ resume=
 init=
 cmd="utils/retry.pl utils/queue.pl --mem 4G --gpu 1 --config conf/gpu.conf" 
 keep_every=20
-keep_last=10
+keep_last=2
 
 . ./utils/parse_options.sh
 
-echo "Num args: $#"
+set -eo pipefail
+
+#echo "Num args: $#"
 
 if [ $# -ne 2 ]; then
   echo "Usage: ./train_async_parallel.sh <train_script> <odir>"

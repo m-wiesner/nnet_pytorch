@@ -1,5 +1,7 @@
-# Batch generators for training and inference
+# Copyright 2021
+# Apache 2.0
 
+# Batch generators for training and inference
 def batches(dataset, n):
     for b in range(n):
         yield dataset.minibatch()

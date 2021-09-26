@@ -1,3 +1,6 @@
+# Copyright 2021
+# Apache 2.0
+
 import numpy as np
 import torch
 from bisect import bisect
@@ -25,6 +28,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         random_cw = ds.get('random_cw', False)
         min_chunk_width = ds.get('min_chunk_width', 8)
         cw_curriculum = ds.get('cw_curriculum', 0.0)
+        objf_names = ds.get('objf_names', 'None')
         return HybridAsrDataset(
             ds['data'], ds['tgt'],
             left_context=ds['left_context'],
@@ -34,6 +38,7 @@ class HybridAsrDataset(NnetPytorchDataset):
             subsample=ds['subsample'],
             mean=ds['mean_norm'], var=ds['var_norm'],
             utt_subset=ds['utt_subset'],
+            objf_names=objf_names,
             perturb_type=perturb_type,
             random_cw=random_cw,
             min_chunk_width=min_chunk_width,
@@ -46,7 +51,7 @@ class HybridAsrDataset(NnetPytorchDataset):
         batchsize=128, mean=True, var=True,
         utt_subset=None, subsample=1,
         perturb_type='none', random_cw=False, min_chunk_width=8,
-        chunk_width_curriculum=0.0,
+        chunk_width_curriculum=0.0, objf_names=None,
     ):
         # Load CMVN
         cmvn_scp = os.path.sep.join((datadir, 'cmvn.scp'))
@@ -54,11 +59,12 @@ class HybridAsrDataset(NnetPytorchDataset):
         self.mean = mean
         self.var = var
         self.subsample = subsample
-        self.spk2cmvn = load_cmvn(cmvn_scp)
+        self.spk2cmvn = load_cmvn(cmvn_scp) if mean or var else None
         self.batchsize = batchsize
         self.epoch = 0
         self.cw_curriculum = chunk_width_curriculum
-        
+        self.objf_names = objf_names
+         
         # Load UTT2SPK
         utt2spk = os.path.sep.join((datadir, 'utt2spk'))
         with open(utt2spk) as f:
@@ -179,7 +185,7 @@ class HybridAsrDataset(NnetPytorchDataset):
             len(self.targets[utt_name]),
             target_start + self.curr_subsample_chunk_width,
         )
-             
+        
         target = self.targets[utt_name][target_start: target_end]
         
         # Get the lower and upper boundaries for the window
@@ -291,11 +297,20 @@ class HybridAsrDataset(NnetPytorchDataset):
             
             split.append(split_idx)
             sample = self[(split_idx, utt_idx, idx + utt_offset)]
+            if len(sample.target) != self.curr_subsample_chunk_width:
+                continue;
             name.append(sample.metadata['name'])
             input_size = torch.from_numpy(sample.input)
             perturb(input_size, perturbations=self.perturb_type)
             input_tensor[size, :, :] = input_size 
-            output[size, :] = torch.LongTensor(sample.target)
+            try:
+                output[size, :] = torch.LongTensor(sample.target)
+            except RuntimeError:
+                print("Target: ", sample.target)
+                print("Outputsize: ", outpus.size())
+                print("Utt: ", utt_name)
+                print("Utt Length: ", utt_length)
+
 
             size += self.size(idx)
         
@@ -303,6 +318,7 @@ class HybridAsrDataset(NnetPytorchDataset):
             'name': name,
             'left_context': self.curr_left_context,
             'right_context': self.curr_right_context,
+            'objf_names': self.objf_names,
         }
 
         output_tensor = torch.LongTensor(output)

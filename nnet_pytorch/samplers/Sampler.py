@@ -1,3 +1,6 @@
+# Copyright 2021
+# Apache 2.0
+
 import torch
 
 from functools import partial
@@ -112,16 +115,16 @@ class Sampler(torch.nn.Module):
                 'with post or prior sampling types.'
              )
        
-        datasets = eval(conf['datasets'])
-        max_len = 0
-        for d in datasets:
-            widths = d['min_chunk_width'], d['left_context'], d['right_context']
-            max_len = max(max_len, sum(widths))
-            max_len = max(max_len, d['chunk_width'])
-        
+        #datasets = eval(conf['datasets'])
+        #max_len = 0
+        #for d in datasets:
+        #    widths = d['min_chunk_width'], d['left_context'], d['right_context']
+        #    max_len = max(max_len, sum(widths))
+        #    max_len = max(max_len, d['chunk_width'])
+        #
         buffer_size = eval(conf.get('sgld_buffer_size', "(10000, 250, 100)"))
-        if max_len > buffer_size[1]:
-            raise RuntimeError("The data length is longer than the buffer") 
+        #if max_len > buffer_size[1]:
+        #    raise RuntimeError("The data length {}, is longer than the buffer length {}".format(max_len, buffer_size[1])) 
         
         # Returned the sampler
         return Sampler(
@@ -201,7 +204,7 @@ class Sampler(torch.nn.Module):
      
     def generate_like(self, sample, model, energy,
         data_energy=None, generate_type='pd', targets=None,
-        normalize=False, 
+        normalize=False, numsteps=None 
     ):
         '''
             Generate samples using the sampler to have the same dimensions,
@@ -234,8 +237,11 @@ class Sampler(torch.nn.Module):
         elif generate_type == 'decorrupt':
             sample_synthetic = sample.input
             metadata = sample.metadata 
-            numsteps = torch.zeros(B).to(sample.input.device)
-        
+            if numsteps is None:
+                numsteps = torch.zeros(B).to(sample.input.device)
+            else:
+                numsteps = numsteps * torch.ones(B).to(sample.input.device)
+
         # Determine the energy function to use
         if self.sampling_type == 'prior':
             energy_ = TargetEnergy()
@@ -309,11 +315,19 @@ class Sampler(torch.nn.Module):
                         'E': y.data.item(),
                         'std': sample_synthetic_params.std().data.item(),
                         'mean': sample_synthetic_params.mean().data.item(),
-                        'grad_norm': grad_norm.data.item(),
-                    }
-            )
+                        'grad_norm': grad_norm.data.item(),  
+                        'steps': k,
+                    } 
+                )
+                
             numsteps += 1
             optim.step(numsteps=numsteps, startval=y.data.item())
+            if self.debug:
+                logging_stats['stats'][-1].update(
+                    {
+                        'lr': optim.state[optim.param_groups[0]['params'][0]]['opt_lr'] if isinstance(optim, AcceleratedSGLD) else None,
+                    }
+                )
             optim.zero_grad()
             y = energy_fun(Sampler.Minibatch(sample_synthetic_params, metadata))  
             k += 1 
@@ -325,6 +339,12 @@ class Sampler(torch.nn.Module):
                     'std': sample_synthetic_params.std().data.item(),
                     'mean': sample_synthetic_params.mean().data.item(),
                     'grad_norm': grad_norm.data.item(),
+                    'steps': k,
+                }
+            )
+            logging_stats['stats'][-1].update(
+                {
+                    'lr': optim.state[optim.param_groups[0]['params'][0]]['opt_lr'] if isinstance(optim, AcceleratedSGLD) else None,
                 }
             ) 
             self.generation_print(logging_stats)  
@@ -332,7 +352,8 @@ class Sampler(torch.nn.Module):
         x = sample_synthetic_params.detach() 
         if len(self.buffer) > 0 and generate_type == 'pd':
             buffer_idxs = metadata['buffer_idxs']
-            self.buffer[buffer_idxs, :x.size(1), :x.size(2)] = x
+            idx_T = metadata['buffer_idx_t']
+            self.buffer[buffer_idxs, idx_T:idx_T+x.size(1), :x.size(2)] = x
             self.buffer_numsteps[buffer_idxs] = numsteps
         return Sampler.Minibatch(x, metadata), k
 
@@ -350,8 +371,9 @@ class Sampler(torch.nn.Module):
             print()
         Sampled_Energy = logging_stats['stats'][-1]['E']
         Target_Energy = logging_stats['init']['E_data']
+        num_steps = logging_stats['stats'][-1]['steps']
         print('-------------------------------------------------------------')
-        print(f"Sampled_Energy: {Sampled_Energy} Target_Energy {Target_Energy}")
+        print(f"Sampled_Energy: {Sampled_Energy} Target_Energy: {Target_Energy} Num_Steps: {num_steps}")
         print('-------------------------------------------------------------')
 
     def init_buffer_like(self, data):
@@ -384,9 +406,10 @@ class Sampler(torch.nn.Module):
         '''
         idxs = torch.randint(0, len(self.buffer), (data.size(0),)).to(data.device)
         T, D = data.size(1), data.size(2)
-        if D > self.buffer.size(2):
-            raise RuntimeError("The data dimension is larger than what is in the buffer")
-        return self.buffer[idxs, :T, :D], self.buffer_numsteps[idxs], idxs
+        idx_T = torch.randint(0, self.buffer.size(1)-(T-1), (1,)).to(data.device)
+        if D > self.buffer.size(2):                                                                             
+            raise RuntimeError("The data dimension is larger than what is in the buffer")                          
+        return self.buffer[idxs][:, idx_T:idx_T + T, :D], self.buffer_numsteps[idxs], idxs, idx_T                 
 
     def init_pd_like(self, sample):
         '''
@@ -395,7 +418,7 @@ class Sampler(torch.nn.Module):
         '''
         x = sample.input
         metadata = sample.metadata 
-        buff_samples, buff_numsteps, idxs = self.init_from_buffer_like(x)
+        buff_samples, buff_numsteps, idxs, idx_T = self.init_from_buffer_like(x)
         rand_samples, rand_numsteps = self.init_random_like(x)
         
         choose_rand = (torch.rand(x.size(0)) < self.reinit_p).float()[:, None, None].to(x.device)
@@ -405,7 +428,8 @@ class Sampler(torch.nn.Module):
         metadata.update(
             {
                 'buffer_idxs': idxs,
-                'buffer_numsteps': numsteps
+                'buffer_numsteps': numsteps,
+                'buffer_idx_t': idx_T
             }
         ) 
         return samples, metadata 
@@ -437,14 +461,17 @@ class Sampler(torch.nn.Module):
             Samples target sequences from priors file.  
         '''
         f = open(self.priors)
-        offsets = random.choices(self.priors_offsets, k=bs)
         tgts = []
-        for offset in offsets:
-            idx = 1 + int((random.random() - 1e-09) * (offset[1] - (length-1)))
+        while len(tgts) < bs:
+            offset = random.choice(self.priors_offsets)
             f.seek(offset[0])
             # The first token is the uttid
+            line = f.readline().split()
+            if len(line[1:]) < length:
+                continue; 
+            idx = 1 + int((random.random() - 1e-09) * (offset[1] - (length-1)))
             tgts.append(
-                [int(pdf) for pdf in f.readline().split()[idx: idx + length]]
+                [int(pdf) for pdf in line[idx: idx + length]]
             )
         f.close()
         return tgts

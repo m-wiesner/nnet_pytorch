@@ -53,10 +53,18 @@ def main():
     for name, param in new_mdl_dict.items():
         if len(param.size()) > 0: 
             param.mul_(0.0)
-    
-    fraction = 1.0 / (len(args.models)) 
-    for i, m in enumerate(args.models):
-        print("Combining Model ", i, " ...")
+   
+    # Some requested models may not exist -- for instance we only save models
+    # that completed successfully.
+    model_list = [m for m in args.models if os.path.exists(m)]
+    try:
+        fraction = 1.0 / (len(model_list))
+    except ZeroDivisionError:
+        print("No remaining models", file=sys.stderr)
+        sys.exit(1)
+
+    for i, m in enumerate(model_list):
+        print("Combining Model ", i, " : ", m, " ...")
         state_dict = torch.load(m, map_location=torch.device('cpu'))
         #----------------------- Model -------------------------
         # To combine models, we just average the weights
@@ -94,7 +102,7 @@ def main():
     )
     
     if not args.save_models:
-        for m in args.models:
+        for m in model_list:
             os.remove(m) 
 
 

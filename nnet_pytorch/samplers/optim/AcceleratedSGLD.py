@@ -1,3 +1,6 @@
+# Copyright 2021
+# Apache 2.0
+
 import torch
 from torch.optim.optimizer import Optimizer, required
 from functools import partial
@@ -120,14 +123,13 @@ class AcceleratedSGLD(Optimizer):
             for p in group['params']:
                 if p.grad is None:
                     continue
-                grad_norm = max(self.epsilon, (p.grad.data ** 2.0).sum())
-                if grad_norm <= self.epsilon:
-                    print("Small Grad Norm!!")
-                    grad_norm = self.epsilon
+                grad_norm = (p.grad.data ** 2.0).sum() + self.epsilon
+                #if grad_norm <= 2*self.epsilon:
+                    #print("Small Grad Norm!!")
                 opt_lr = (self.final_val - startval)/grad_norm
                 # When we are below the requested value, we can just descend at
                 # at a normal pace ...
-                opt_lr = self.epsilon / grad_norm if opt_lr > 0 else -opt_lr
+                opt_lr = self.epsilon if opt_lr > 0 else -opt_lr
                 d_p = p.grad.data
                 if weight_decay != 0:
                     d_p.add_(p.data, alpha=weight_decay)
@@ -140,5 +142,5 @@ class AcceleratedSGLD(Optimizer):
                     alpha=-group['lr'] * opt_lr,
                 )
                 p.data.add_(self.state[p]['update'])
-                self.state[p]['opt_lr'] = opt_lr 
+                self.state[p]['opt_lr'] = opt_lr / replay_correction.mean()
         return loss

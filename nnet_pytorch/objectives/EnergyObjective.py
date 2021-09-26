@@ -1,3 +1,6 @@
+# Copyright 2021
+# Apache 2.0
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -77,7 +80,8 @@ class EnergyLoss(nn.Module):
         
         losses = []
         if self.l2 > 0:
-            l2_loss = (expected_energy ** 2 + data_energy ** 2) / (B * T)
+            l2_loss = T * (expected_energy ** 2 + data_energy ** 2) / B # The multiplication by T takes care of the T^2 term that shows up when squaring since energy terms are normalized by T
+            #l2_loss = (x.sum(1) ** 2).sum() / (B * T) 
             print("L2: ", l2_loss.data.item(), end=' ')
             losses.append(self.l2 * l2_loss)
        
@@ -106,8 +110,8 @@ class EnergyLoss(nn.Module):
             self.sampler.sampling_type = 'prior'
         for i in range(num_steps): 
             sample = self.sampler.generate_like(
-                sample, model, self.energy, data_energy=-60.0,
-                generate_type='decorrupt', targets=targets
+                sample, model, self.energy, data_energy=-15.0,
+                generate_type='decorrupt', targets=targets, numsteps=i,
             )[0]
             yield sample.input
 

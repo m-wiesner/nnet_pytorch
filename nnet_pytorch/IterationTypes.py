@@ -49,6 +49,7 @@ def train_epoch(args, generator, model, objective, optim, lr_sched, device='cpu'
         else:
             loss, correct = objective(model, b)
         if isinstance(loss, int):
+            print("What is this doing here? ...")
             continue;
         print("Loss: {:0.5f}".format(loss.data.item()), end=' ')
         if correct is not None:

@@ -1,3 +1,6 @@
+# Copyright 2021
+# Apache 2.0
+
 import kaldi_io
 import numpy as np
 import subprocess
@@ -50,6 +53,80 @@ def memmap_feats(feats_scp, f_memmapped, utt_list, dtype=np.float32):
         f[offset:new_offset, :] = m
         offset = new_offset
     print()
+    del f
+    return utt_lens, offsets, data_shape
+
+
+def memmap_raw_audio(wav_scp, f_memmapped, utt_list, dtype=np.float32, sampling_rate=16000, do_normalize=True):
+    '''
+        Maps the wva.scp file from kaldi to a memory mapped numpy object.
+        This allows for fast i/o when creating window minibathces from slices
+        of training data.
+
+        input args: wav_scp, f_memmapped
+        output:
+            utt_lens = {'utt_n': # utt_n frames, ...}
+            offsets = {'utt_n': utt_n offset in memory mapped numpy file}
+            data_shape = {#frames, feature_dimension}
+    '''
+    import os
+    dataset = os.path.dirname(wav_scp)
+  
+    print(dataset) 
+    if not os.path.exists(os.path.join(dataset, 'reco2dur')):  
+        p = subprocess.Popen(['./utils/data/get_reco2dur.sh', dataset],
+            stdout=subprocess.PIPE
+        )
+        out = p.communicate()
+
+    # Import lhotse and install if not available
+    try:
+        from lhotse import kaldi, CutSet
+    except ImportError:
+        from pip._internal import main as pip
+        pip(['install', 'lhotse'])
+        from lhotse import kaldi, CutSet
+    from lhotse.utils import compute_num_samples
+    
+    data = kaldi.load_kaldi_data_dir(dataset, sampling_rate)
+    cuts = CutSet.from_manifests(data[0], data[1])
+    dim = 1
+    
+    utt_lens = {}
+    for cut in cuts:
+        sr = cut.recording.sampling_rate
+        for sup in cut.supervisions:
+            if sup.id not in utt_list:
+                continue;
+            utt_lens[sup.id.encode()] = compute_num_samples(sup.duration, sr)
+    data_shape = (sum(utt_lens.values()), dim)
+    
+    f = np.memmap(f_memmapped, mode='w+', dtype=dtype, shape=data_shape) 
+    offsets = {}
+    offset = 0
+    for cut in cuts:
+        x_ = cut.recording.load_audio().T
+        # Mean and variance normalize
+        if do_normalize:
+            x = (x_ - x_.mean())/x_.std()
+        else:
+            x = x_
+        sr = cut.recording.sampling_rate
+        for i, supervision in enumerate(cut.supervisions):
+            k = supervision.id
+            print('Utterance ', i, ' : ', k, ' : ', sr)
+            start, dur = supervision.start, supervision.duration
+            if k not in utt_list:
+                continue;
+            start_sample = compute_num_samples(start, sr)
+            end_sample = start_sample + utt_lens[k.encode()]
+            m = x[start_sample:end_sample]
+            offsets[k.encode()] = offset
+            utt_lens[k.encode()] = m.shape[0]
+            new_offset = offset + utt_lens[k.encode()]
+            f[offset:new_offset, :] = m
+            offset = new_offset
+        print()
     del f
     return utt_lens, offsets, data_shape
 

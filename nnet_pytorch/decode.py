@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# Copyright 2021
+# Apache 2.0
 
 import os
 import argparse
@@ -23,7 +25,8 @@ def main():
     # Load experiment configurations so that decoding uses the same parameters
     # as training
     conf = json.load(open(args.modeldir + '/conf.1.json'))
-    
+    print('-------------- Conf --------------')
+    print(conf) 
     dataset_args = eval(conf['datasets'])[0]
     
     # Load the decoding dataset
@@ -66,8 +69,9 @@ def main():
         }
     )
 
+    print("---------------- Dataset -------------------")
+    print(dataset_args)
     dataset = datasets.DATASETS[conf['datasetname']].build_dataset(dataset_args)
-    print(conf) 
     # Build the model and send to the device (cpu or gpu). Generally cpu.
     model = models.MODELS[conf['model']].build_model(conf)
     model.normalize_output = False

@@ -149,10 +149,12 @@ class SpeechResnet(nn.Module):
 class ChainSpeechResnet(SpeechResnet):
     @classmethod
     def build_model(cls, conf):
+        strides = eval(conf.get('strides', "[1, 1, 2, 2]"))
         model = ChainSpeechResnet(
             conf['depth'], conf['width'],
             num_classes=conf['num_targets'],
             input_channels=1,
+            strides=strides,
         )
         return model
 

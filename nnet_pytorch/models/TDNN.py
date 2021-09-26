@@ -1,3 +1,6 @@
+# Copyright 2021
+# Apache 2.0
+
 import torch
 import torch.nn.functional as F
 import numpy as np

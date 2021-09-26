@@ -1,6 +1,10 @@
+# Copyright 2021
+# Apache 2.0
+
 import math
 import torch
 from torch.optim.optimizer import Optimizer, required
+from functools import partial
 
 
 class AdamSGLD(Optimizer):
@@ -36,15 +40,16 @@ class AdamSGLD(Optimizer):
     @classmethod
     def build_partial(cls, conf):
         return partial(
-            SGLD.__init__,
+            AdamSGLD,
             lr=conf['sgld_stepsize'],
             noise=conf['sgld_noise'],
             stepscale=conf['sgld_replay_correction'],
-            weight_decay=conf['sgld_weight_deccay'],
+            weight_decay=conf['sgld_weight_decay'],
         )
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
-                 weight_decay=0, amsgrad=False, noise=0.005, stepscale=1.0):
+                 weight_decay=0, amsgrad=False, noise=0.005, stepscale=1.0,
+                 finalval=None):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
@@ -57,7 +62,7 @@ class AdamSGLD(Optimizer):
             raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
         defaults = dict(lr=lr, betas=betas, eps=eps,
                         weight_decay=weight_decay, amsgrad=amsgrad)
-        super(SGLDAdam, self).__init__(params, defaults)
+        super(AdamSGLD, self).__init__(params, defaults)
         self.noise = noise
         self.stepscale = stepscale
 
@@ -70,7 +75,7 @@ class AdamSGLD(Optimizer):
         return self.noise * torch.randn_like(x).mul_(std)
 
     @torch.no_grad()
-    def step(self, numsteps=None, closure=None):
+    def step(self, numsteps=None, startval=None, closure=None):
         """Performs a single optimization step.
 
         Arguments:

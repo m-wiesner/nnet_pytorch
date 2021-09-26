@@ -1,3 +1,6 @@
+# Copyright 2021
+# Apache 2.0
+
 import torch
 import torch.nn as nn
 from .L2 import L2
@@ -67,9 +70,14 @@ class MultitaskLoss(nn.Module):
         if len(x) < self.num_branches:
             raise ValueError('The number of model branches does not match the '
                 ' number of branches used in the multitask loss')
-       
-        losses = [] 
-        for n, loss in self.losses.items():
+      
+        # See which objfs to use 
+        objf_names = sample.metadata.get('objf_names', None)
+        if objf_names is None:
+            objf_names = self.losses.keys() 
+        losses = []
+        for n in objf_names:
+            loss = self.losses[n]
             weight, branch = self.weights[n], self.branches[n]
             if weight > 0:
                 loss_value, _ = loss(model, sample, precomputed=x[branch])

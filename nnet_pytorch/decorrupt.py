@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# Copyright 2021
+# Apache 2.0
 
 import os
 import sys
@@ -45,7 +47,7 @@ def main():
     # because we are decoding and do not have the targets so validation does
     # not make sense in this context.
     targets = args.targets 
-    if not os.path.exists(targets):
+    if targets is not None and not os.path.exists(targets):
         raise IOError(f"{targets} not found.")
     
     dataset_args.update(
@@ -137,6 +139,7 @@ def parse_arguments():
     parser.add_argument('--targets', type=str, default=None)
     parser.add_argument('--checkpoint', default='final.mdl')
     parser.add_argument('--gpu', action='store_true')
+    parser.add_argument('--fp16', action='store_true')
     parser.add_argument('--batchsize', type=int, default=256)
     parser.add_argument('--idim', type=int, default=64)
     parser.add_argument('--chunk-width', type=int, default=50)
