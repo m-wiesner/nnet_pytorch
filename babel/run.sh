@@ -8,6 +8,7 @@ affix=
 train_nj=120
 stage=0
 boost_sil=0.5
+FLP=true
 
 numLeavesTri1=1000
 numGaussTri1=10000
@@ -31,7 +32,7 @@ done
 if [ $stage -le 0 ]; then
   echo "Preparing data"
   for l in ${langs[@]}; do 
-    ./local/prepare_babel_data.sh --FLP true ${l}
+    ./local/prepare_babel_data.sh --FLP ${FLP} ${l}
   done
 fi
 
