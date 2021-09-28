@@ -279,6 +279,8 @@ def parse_arguments():
             'MultiChainBLSTM',
             'Wav2Vec2',
             'ChainWav2Vec2',
+            'Hubert',
+            'ChainHubert',
         ]
     )
     parser.add_argument('--seed', type=int, default=0)

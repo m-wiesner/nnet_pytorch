@@ -30,6 +30,8 @@ MODELS = {
     'MultiChainBLSTM': MultiBLSTM.MultiChainBLSTM,
     'Wav2Vec2': Wav2Vec2.Wav2Vec2,
     'ChainWav2Vec2': Wav2Vec2.ChainWav2Vec2,
+    'Hubert': Hubert.Hubert,
+    'ChainHubert': Hubert.ChainHubert,
 }
 
 def build_model(modelname, conf):

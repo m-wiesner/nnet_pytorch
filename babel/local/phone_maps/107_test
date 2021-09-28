@@ -1,0 +1,375 @@
+1@I_1 1 @_TML_TLS I
+1@I_2 1 @_THL_TRS I
+1@I_3 1 @_TLL_TFS I
+1@I_4 1 @_TML_TLS I
+1@I_5 1 @_TLL_TRS I
+1@I_6 1 @_TLL_TFS I
+1@U_1 1 @_TML_TLS U
+1@U_2 1 @_THL_TRS U
+1@U_6 1 @_TLL_TFS U
+1@_1 1 @_TML_TLS
+1@_2 1 @_THL_TRS
+1@_3 1 @_TLL_TFS
+1@_4 1 @_TML_TLS
+1@_5 1 @_TLL_TRS
+1@_6 1 @_TLL_TFS
+1I_4 1 I
+1U_1 1 U
+1U_2 1 U
+1U_3 1 U
+1U_4 1 U
+1U_5 1 U
+1U_6 1 U
+1_1 1
+1_2 1
+1_3 1
+1_4 1
+1_5 1
+1_6 1
+@:I_1 @_TML_TLS I
+@:I_2 @_THL_TRS I
+@:I_3 @_TLL_TFS I
+@:I_4 @_TML_TLS I
+@:I_6 @_TLL_TFS I
+@:_1 @_TML_TLS
+@:_2 @_THL_TRS
+@:_3 @_TLL_TFS
+@:_4 @_TML_TLS
+@:_5 @_TLL_TRS
+@:_6 @_TLL_TFS
+@I_1 @_TML_TLS I
+@I_2 @_THL_TRS I
+@I_3 @_TLL_TFS I
+@I_4 @_TML_TLS I
+@I_5 @_TLL_TRS I
+@I_6 @_TLL_TFS I
+@U_1 @_TML_TLS U
+@U_2 @_THL_TRS U
+@U_3 @_TLL_TFS U
+@U_4 @_TML_TLS U
+@U_5 @_TLL_TRS U
+@U_6 @_TLL_TFS U
+@_1 @_TML_TLS
+@_2 @_THL_TRS
+@_3 @_TLL_TFS
+@_4 @_TML_TLS
+@_5 @_TLL_TRS
+@_6 @_TLL_TFS
+EU_1 E_TML_TLS U
+EU_2 E_THL_TRS U
+EU_3 E_TLL_TFS U
+EU_4 E_TML_TLS U
+EU_5 E_TLL_TRS U
+EU_6 E_TLL_TFS U
+E_1 E_TML_TLS
+E_2 E_THL_TRS
+E_3 E_TLL_TFS
+E_4 E_TML_TLS
+E_5 E_TLL_TRS
+E_6 E_TLL_TFS
+G_1 G
+G_2 G
+G_3 G
+G_4 G
+G_5 G
+G_6 G
+J\_1 J\
+J\_2 J\
+J\_3 J\
+J\_4 J\
+J\_5 J\
+J\_6 J\
+J_1 J_TML_TLS
+J_2 J_THL_TRS
+J_3 J_TLL_TFS
+J_4 J_TML_TLS
+J_5 J_TLL_TRS
+J_6 J_TLL_TFS
+N_1 N_TML_TLS
+N_2 N_THL_TRS
+N_3 N_TLL_TFS
+N_4 N_TML_TLS
+N_5 N_TLL_TRS
+N_6 N_TLL_TFS
+OE_1 O_TML_TLS E_TML_TLS
+OE_2 O_THL_TRS E_THL_TRS
+OE_3 O_TLL_TFS E_TLL_TFS
+OE_4 O_TML_TLS E_TML_TLS
+OE_6 O_TLL_TFS E_TLL_TFS
+OI_1 O_TML_TLS I
+OI_2 O_THL_TRS I
+OI_3 O_TLL_TFS I
+OI_4 O_TML_TLS I
+OI_5 O_TLL_TRS I
+OI_6 O_TLL_TFS I
+O_1 O_TML_TLS
+O_2 O_THL_TRS
+O_3 O_TLL_TFS
+O_4 O_TML_TLS
+O_5 O_TLL_TRS
+O_6 O_TLL_TFS
+Oa:_1 O_TML_TLS a:_TML_TLS
+Oa:_2 O_THL_TRS a:_THL_TRS
+Oa:_3 O_TLL_TFS a:_TLL_TFS
+Oa:_4 O_TML_TLS a:_TML_TLS
+Oa:_5 O_TLL_TRS a:_TLL_TRS
+Oa:_6 O_TLL_TFS a:_TLL_TFS
+Oa_1 O_TML_TLS a:_TML_TLS
+Oa_2 O_THL_TRS a:_THL_TRS
+Oa_3 O_TLL_TFS a:_TLL_TFS
+Oa_6 O_TLL_TFS a:_TLL_TFS
+a:I_1 a:_TML_TLS I
+a:I_2 a:_THL_TRS I
+a:I_3 a:_TLL_TFS I
+a:I_4 a:_TML_TLS I
+a:I_5 a:_TLL_TRS I
+a:I_6 a:_TLL_TFS I
+a:U_1 a:_TML_TLS U
+a:U_2 a:_THL_TRS U
+a:U_3 a:_TLL_TFS U
+a:U_4 a:_TML_TLS U
+a:U_5 a:_TLL_TRS U
+a:U_6 a:_TLL_TFS U
+a:_1 a:_TML_TLS
+a:_2 a:_THL_TRS
+a:_3 a:_TLL_TFS
+a:_4 a:_TML_TLS
+a:_5 a:_TLL_TRS
+a:_6 a:_TLL_TFS
+aI_1 a:_TML_TLS I
+aI_2 a:_THL_TRS I
+aI_3 a:_TLL_TFS I
+aI_4 a:_TML_TLS I
+aI_5 a:_TLL_TRS I
+aI_6 a:_TLL_TFS I
+aU_1 a:_TML_TLS U
+aU_2 a:_THL_TRS U
+aU_3 a:_TLL_TFS U
+aU_6 a:_TLL_TFS U
+a_1 a:_TML_TLS
+a_2 a:_THL_TRS
+a_3 a:_TLL_TFS
+a_4 a:_TML_TLS
+a_5 a:_TLL_TRS
+a_6 a:_TLL_TFS
+b<_1 b<
+b<_2 b<
+b<_3 b<
+b<_4 b<
+b<_5 b<
+b<_6 b<
+c_2 c_THL_TRS
+c_6 c_TLL_TFS
+d<_1 d<
+d<_2 d<
+d<_3 d<
+d<_4 d<
+d<_5 d<
+d<_6 d<
+eU_1 e_TML_TLS U
+eU_2 e_THL_TRS U
+eU_3 e_TLL_TFS U
+eU_4 e_TML_TLS U
+e_1 e_TML_TLS
+e_2 e_THL_TRS
+e_3 e_TLL_TFS
+e_4 e_TML_TLS
+e_5 e_TLL_TRS
+e_6 e_TLL_TFS
+f_1 f_TML_TLS
+f_2 f_THL_TRS
+f_3 f_TLL_TFS
+f_4 f_TML_TLS
+f_5 f_TLL_TRS
+f_6 f_TLL_TFS
+h_1 h_TML_TLS
+h_2 h_THL_TRS
+h_3 h_TLL_TFS
+h_4 h_TML_TLS
+h_5 h_TLL_TRS
+h_6 h_TLL_TFS
+i@U_1 i_TML_TLS @_TML_TLS U
+i@U_2 i_THL_TRS @_THL_TRS U
+i@U_3 i_TLL_TFS @_TLL_TFS U
+i@U_4 i_TML_TLS @_TML_TLS U
+i@U_5 i_TLL_TRS @_TLL_TRS U
+i@U_6 i_TLL_TFS @_TLL_TFS U
+i@_1 i_TML_TLS @_TML_TLS
+i@_2 i_THL_TRS @_THL_TRS
+i@_3 i_TLL_TFS @_TLL_TFS
+i@_4 i_TML_TLS @_TML_TLS
+i@_5 i_TLL_TRS @_TLL_TRS
+i@_6 i_TLL_TFS @_TLL_TFS
+iU_1 i_TML_TLS U
+iU_2 i_THL_TRS U
+iU_3 i_TLL_TFS U
+iU_4 i_TML_TLS U
+iU_5 i_TLL_TRS U
+iU_6 i_TLL_TFS U
+i_1 i_TML_TLS
+i_2 i_THL_TRS
+i_3 i_TLL_TFS
+i_4 i_TML_TLS
+i_5 i_TLL_TRS
+i_6 i_TLL_TFS
+j_1 j_TML_TLS
+j_2 j_THL_TRS
+j_3 j_TLL_TFS
+j_4 j_TML_TLS
+j_5 j_TLL_TRS
+j_6 j_TLL_TFS
+k_1 k_TML_TLS
+k_2 k_THL_TRS
+k_3 k_TLL_TFS
+k_4 k_TML_TLS
+k_5 k_TLL_TRS
+k_6 k_TLL_TFS
+l_1 l_TML_TLS
+l_2 l_THL_TRS
+l_3 l_TLL_TFS
+l_4 l_TML_TLS
+l_5 l_TLL_TRS
+l_6 l_TLL_TFS
+m_1 m_TML_TLS
+m_2 m_THL_TRS
+m_3 m_TLL_TFS
+m_4 m_TML_TLS
+m_5 m_TLL_TRS
+m_6 m_TLL_TFS
+n_1 n_TML_TLS
+n_2 n_THL_TRS
+n_3 n_TLL_TFS
+n_4 n_TML_TLS
+n_5 n_TLL_TRS
+n_6 n_TLL_TFS
+oI_1 o_TML_TLS I
+oI_2 o_THL_TRS I
+oI_3 o_TLL_TFS I
+oI_4 o_TML_TLS I
+oI_5 o_TLL_TRS I
+oI_6 o_TLL_TFS I
+o_1 o_TML_TLS
+o_2 o_THL_TRS
+o_3 o_TLL_TFS
+o_4 o_TML_TLS
+o_5 o_TLL_TRS
+o_6 o_TLL_TFS
+oaI:_1 o_TML_TLS a:_TML_TLS I
+oaI:_2 o_THL_TRS a:_THL_TRS I
+oaI_1 o_TML_TLS a:_TML_TLS I
+oaI_2 o_THL_TRS a:_THL_TRS I
+oaI_3 o_TLL_TFS a:_TLL_TFS I
+oaI_4 o_TML_TLS a:_TML_TLS I
+oaI_6 o_TLL_TFS a:_TLL_TFS I
+p_1 p_TML_TLS
+p_2 p_THL_TRS
+p_3 p_TLL_TFS
+p_6 p_TLL_TFS
+r\_1 r\`
+r\_2 r\`
+r\_3 r\`
+r\_4 r\`
+r\_5 r\`
+r\_6 r\`
+s_1 s_TML_TLS
+s_2 s_THL_TRS
+s_3 s_TLL_TFS
+s_4 s_TML_TLS
+s_5 s_TLL_TRS
+s_6 s_TLL_TFS
+s`_1 s`
+s`_2 s`
+s`_3 s`
+s`_4 s`
+s`_5 s`
+s`_6 s`
+t_1 t_TML_TLS
+t_2 t_THL_TRS
+t_3 t_TLL_TFS
+t_4 t_TML_TLS
+t_5 t_TLL_TRS
+t_6 t_TLL_TFS
+th_1 th_TML_TLS
+th_2 th_THL_TRS
+th_3 th_TLL_TFS
+th_4 th_TML_TLS
+th_5 th_TLL_TRS
+th_6 th_TLL_TFS
+ts\_1 tS
+ts\_2 tS
+ts\_3 tS
+ts\_4 tS
+ts\_5 tS
+ts\_6 tS
+ts`_1 ts
+ts`_2 ts
+ts`_3 ts
+ts`_4 ts
+ts`_5 ts
+ts`_6 ts
+u@:_2 u_THL_TRS @_THL_TRS
+u@:_4 u_TML_TLS @_TML_TLS
+u@I_1 u_TML_TLS @_TML_TLS I
+u@I_2 u_THL_TRS @_THL_TRS I
+u@I_3 u_TLL_TFS @_TLL_TFS I
+u@I_4 u_TML_TLS @_TML_TLS I
+u@I_5 u_TLL_TRS @_TLL_TRS I
+u@I_6 u_TLL_TFS @_TLL_TFS I
+u@_1 u_TML_TLS @_TML_TLS
+u@_2 u_THL_TRS @_THL_TRS
+u@_3 u_TLL_TFS @_TLL_TFS
+u@_4 u_TML_TLS @_TML_TLS
+u@_5 u_TLL_TRS @_TLL_TRS
+u@_6 u_TLL_TFS @_TLL_TFS
+uI@_1 u_TML_TLS I @_TML_TLS
+uI@_2 u_THL_TRS I @_THL_TRS
+uI@_3 u_TLL_TFS I @_TLL_TFS
+uI@_4 u_TML_TLS I @_TML_TLS
+uI@_5 u_TLL_TRS I @_TLL_TRS
+uI@_6 u_TLL_TFS I @_TLL_TFS
+uI_1 u_TML_TLS I
+uI_2 u_THL_TRS I
+uI_3 u_TLL_TFS I
+uI_4 u_TML_TLS I
+uI_5 u_TLL_TRS I
+uI_6 u_TLL_TFS I
+u_1 u_TML_TLS
+u_2 u_THL_TRS
+u_3 u_TLL_TFS
+u_4 u_TML_TLS
+u_5 u_TLL_TRS
+u_6 u_TLL_TFS
+ue_1 u_TML_TLS e_TML_TLS
+ue_2 u_THL_TRS e_THL_TRS
+ue_3 u_TLL_TFS e_TLL_TFS
+ue_4 u_TML_TLS e_TML_TLS
+ue_6 u_TLL_TFS e_TLL_TFS
+ui:_1 u_TML_TLS i:_TML_TLS
+ui:_2 u_THL_TRS i:_THL_TRS
+ui:_3 u_TLL_TFS i:_TLL_TFS
+ui:_4 u_TML_TLS i:_TML_TLS
+ui:_5 u_TLL_TRS i:_TLL_TRS
+ui:_6 u_TLL_TFS i:_TLL_TFS
+v_1 v
+v_2 v
+v_3 v
+v_4 v
+v_5 v
+v_6 v
+w_1 w_TML_TLS
+w_2 w_THL_TRS
+w_3 w_TLL_TFS
+w_4 w_TML_TLS
+w_5 w_TLL_TRS
+w_6 w_TLL_TFS
+x_1 x
+x_2 x
+x_3 x
+x_4 x
+x_6 x
+z_1 z
+z_2 z
+z_3 z
+z_4 z
+z_5 z
+z_6 z

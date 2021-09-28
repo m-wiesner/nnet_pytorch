@@ -1,48 +1,45 @@
-from transformers import Wav2Vec2ForCTC, Wav2Vec2ForPreTraining
+from transformers import HubertForCTC
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
 
-class Wav2Vec2(nn.Module):
+class Hubert(nn.Module):
     @staticmethod
     def add_args(parser):
-        parser.add_argument('--wav2vec2-mdl-name',
+        parser.add_argument('--hubert-mdl-name',
             type=str,
-            default="facebook/wav2vec2-large-100k-voxpopuli"
+            default="facebook/hubert-large-ll60k"
         )
-        parser.add_argument('--wav2vec2-freeze-feat-extractor', action='store_true') 
-        parser.add_argument('--wav2vec2-subsampling', type=int, default=320)
-        parser.add_argument('--wav2vec2-single-layer', action='store_true')
+        parser.add_argument('--hubert-freeze-feat-extractor', action='store_true') 
+        parser.add_argument('--hubert-subsampling', type=int, default=320)
+        parser.add_argument('--hubert-single-layer', action='store_true')
 
     @classmethod
     def build_model(cls, conf):
-        return Wav2Vec2(
+        return Hubert(
             conf['num_targets'],
-            mdl_name=conf.get('wav2vec2_mdl_name', "facebook/wav2vec2-large-100k-voxpopuli"),
-            freeze=conf.get('wav2vec2_freeze_feat-extractor', False),
-            subsampling=conf.get('wav2vec2_subsampling', 320),
-            single_layer=conf.get('wav2vec2_single_layer', False),
+            mdl_name=conf.get('hubert_mdl_name', "facebook/hubert-large-ll60k"),
+            freeze=conf.get('hubert_freeze_feat-extractor', False),
+            subsampling=conf.get('hubert_subsampling', 320),
+            single_layer=conf.get('hubert_single_layer', False),
         )
 
     def __init__(self, num_classes,
-        mdl_name="facebook/wav2vec2-large-100k-voxpopuli",
+        mdl_name="facebook/hubert-large-ll60k",
         freeze=False,
         subsampling=320,
         single_layer=False,
     ):
-        super(Wav2Vec2, self).__init__()
+        super(Hubert, self).__init__()
         self.single_layer = single_layer
         self.odim = num_classes
         self.freeze = freeze
         self.mdl_name = mdl_name
         self.subsampling = subsampling
-        try:
-            self.wav2vec2 = Wav2Vec2ForCTC.from_pretrained(mdl_name).wav2vec2
-        except:
-            self.wav2vec2 = Wav2Vec2ForPreTraining.from_pretrained(mdl_name).wav2vec2
+        self.hubert = HubertForCTC.from_pretrained(mdl_name).hubert
         if self.freeze:
-            self.wav2vec2.feature_extractor._freeze_parameters()
+            self.hubert.feature_extractor._freeze_parameters()
 
         if not single_layer:
             self.downsample_linear = nn.Linear(1024, 512)
@@ -52,7 +49,7 @@ class Wav2Vec2(nn.Module):
             self.linear = nn.Linear(1024, num_classes)
 
     def forward(self, sample):
-        x = self.wav2vec2(sample.input.squeeze(-1)).last_hidden_state
+        x = self.hubert(sample.input.squeeze(-1)).last_hidden_state
         if not self.single_layer:
             x = self.downsample_linear(x)
             x = self.lrelu(x)
@@ -68,15 +65,15 @@ class Wav2Vec2(nn.Module):
         return (output0, output1)
 
 
-class ChainWav2Vec2(Wav2Vec2):
+class ChainHubert(Hubert):
     @classmethod
     def build_model(cls, conf):
-        return ChainWav2Vec2(
+        return ChainHubert(
             conf['num_targets'],
-            mdl_name=conf.get('wav2vec2_mdl_name', "facebook/wav2vec2-large-100k-voxpopuli"),
-            freeze=conf.get('wav2vec2_freeze_feat-extractor', False),
-            subsampling=conf.get('wav2vec2_subsampling', 320),
-            single_layer=conf.get('wav2vec2_single_layer', False),
+            mdl_name=conf.get('hubert_mdl_name', "facebook/hubert-large-ll60k"),
+            freeze=conf.get('hubert_freeze_feat-extractor', False),
+            subsampling=conf.get('hubert_subsampling', 320),
+            single_layer=conf.get('hubert_single_layer', False),
         )
 
     def __init__(self, *args, **kwargs):
