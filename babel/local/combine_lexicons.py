@@ -38,21 +38,26 @@ def main():
                 word, pron = l.strip().split(None, 1)
                 if is_silence_word(l, silence_phones):
                     sil_words.add((word, pron))
-                    word_count += 1   
                 else:
                     if word not in word_maps[d]:
                         word_maps[d][word] = word_count  
                         word_count += 1
-                    lexicon[word_maps[d][word]] = pron
+                    if word_maps[d][word] not in lexicon:
+                        lexicon[word_maps[d][word]] = []
+                    lexicon[word_maps[d][word]].append(pron)
     
     for w in sil_words:
-        lexicon[w[0]] = w[1]
+        if w[0] not in lexicon:
+            lexicon[w[0]] = []
+        lexicon[w[0]].append(w[1])
         for d in word_maps:
             word_maps[d][w[0]] = word_count
+        word_count += 1
 
     with open(os.path.join(args.odir, 'lexicon.txt'), 'w', encoding='utf-8') as f_lexicon:
         for w in lexicon:
-            print(w, lexicon[w], file=f_lexicon)
+            for pron in lexicon[w]:
+                print(w, pron, file=f_lexicon)
     
     for i, d in enumerate(dicts):
         fname = 'wordmap.{}'.format(i)
